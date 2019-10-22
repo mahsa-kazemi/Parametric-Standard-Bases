@@ -1,0 +1,1130 @@
+#################################################
+#   File : KapurLocal.mm                        #
+#    Main function :  PGBFinal                  #
+#    Input :                                    #
+#    L : list of polynomials                    #
+#    vars : list of variables                   #
+#    params : list of parameters                #
+#    Description : Computes comprehensive       #
+#    standard system relying of the local       #
+#    variate of Kapur algorithm                 #
+#    ======================================     #
+#    Authors Contact:                           #
+#    Amir Hashemi <amir.hashemi@cc.iut.ac.ir>   #
+#    Mahsa Kazemi <mahsa.kazemi@math.iut.ac.ir> #
+#################################################
+read "EfficientStandardBasisMixOrdering.mm";
+with(Groebner):
+with(PolynomialIdeals):
+with(RandomTools):
+#<-----------------------------------------------------------------------------
+# Function: {LTnew}
+# Description: {returns leading term of a polynomial }
+# Calling sequence:
+# {LTnew(f, Vars)}
+# Input:
+# { f : a polynomial }
+# { Vars : list of variables}
+# Output:
+# { }
+#>-----------------------------------------------------------------------------
+LTnew:=proc(f, Vars::list)
+local g, A, BC, d, flag, N, i:
+
+	g := expand(f);
+	if type(g,`+`) then
+		A := [op(g)];
+		A:=sort(A, (a,b)->degree(a, {op(Vars)})<degree(b, {op(Vars)}));
+		d := degree(A[1], {op(Vars)});
+		flag := false;
+		N := NULL;
+		for i from 1 to nops(A) while flag=false do 
+			if degree(A[i], {op(Vars)})=d then
+				N := N, A[i];
+			else
+				flag := true;
+			fi:
+		od:
+		BC := [N];
+		BC := sort(BC, (a,b)->TestOrder(b, a, plex(op(Vars))));
+		RETURN(BC[1]);
+	else
+		RETURN(g);
+	fi;
+end proc:
+
+LTDickson:=proc(f, Vars::list)
+local g, A, BC, d, flag, N, i, f_new:
+	f_new := subs([seq(j=0,j=Vars)],f);
+	if f_new<>0 then
+		return(f_new);
+	end if:
+	g := expand(f);
+	if type(g,`+`) then
+		A := [op(g)];
+		A:=sort(A, (a,b)->degree(a, {op(Vars)})<degree(b, {op(Vars)}));
+		d := degree(A[1], {op(Vars)});
+		flag := false;
+		N := NULL;
+		for i from 1 to nops(A) while flag=false do 
+			if degree(A[i], {op(Vars)})=d then
+				N := N, A[i];
+			else
+				flag := true;
+			fi:
+		od:
+		BC := [N];
+		BC := sort(BC, (a,b)->TestOrder(b, a, plex(op(Vars))));
+		RETURN(BC[1]);
+	else
+		RETURN(g);
+	fi;
+end proc:
+#<-----------------------------------------------------------------------------
+# Function: {RemoveParams}
+# Description: { }
+# Calling sequence:
+# {}
+# Input:
+# { }
+# { }
+# { }
+# Output:
+# { }
+#>-----------------------------------------------------------------------------
+RemoveParams := proc(L_in, params_in)
+local plate_in, elem_in:
+	plate_in := NULL;
+	for elem_in in L_in do
+		if indets(elem_in) subset {op(params_in)} then
+			plate_in := plate_in, elem_in;	
+		end if:
+	end do:
+	return([op({op(L_in)} minus {plate_in})]);
+end proc:
+#<-----------------------------------------------------------------------------
+SortLT:=proc(A,B,Vars,vars)
+	
+	if indets(A) subset {op(vars)}=true and indets(B) subset {op(vars)}=true then
+		if TestOrder(A,B,plex(op(vars)))=true then
+			return(false);
+		else
+			return(true);
+		end if:
+	elif indets(A) subset {op(vars)}=true and indets(B) subset {op(vars)}=false then
+		return(true);
+	elif indets(A) subset {op(vars)}=false and indets(B) subset {op(vars)}=true then
+		return(false);
+	elif indets(A) subset {op(vars)}=false and indets(B) subset {op(vars)}=false then
+		if degree(A,{op(Vars)})<=degree(B,{op(Vars)}) then
+			return(true);
+		elif degree(A,{op(Vars)})>degree(B,{op(Vars)}) then
+			return(false); 
+		end if:
+	end if:
+	
+end proc:
+#<-----------------------------------------------------------------------------
+SortLTEnd:=proc(A,B,Vars,vars)
+	#A :=simplify(A_in/LeadingCoefficient(A_in,plex(op(Vars),op(vars))));
+	#B :=simplify(B_in/LeadingCoefficient(B_in,plex(op(Vars),op(vars))));
+	if indets(A) subset {op(vars)}=false and indets(B) subset {op(vars)}=false then
+		if evalb(subs([seq(i=1,i=vars)],A)=subs([seq(j=1,j=vars)],B))=true then 
+			if TestOrder(A,B,plex(op(vars)))=true then
+				return(false);
+			else
+				return(true);
+			end if:
+		else
+			return(true);
+		end if:
+	elif indets(A) subset {op(vars)}=true and indets(B) subset {op(vars)}=true then
+		return(true);
+	end if:
+end proc:
+#<-----------------------------------------------------------------------------
+# Function: {LT}
+# Description: {returns leading term of a polynomial }
+# Calling sequence:
+# {LT(f, Vars, vars)}
+# Input:
+# { f : a polynomial }
+# { Vars : list of variables}
+# { vars : list of parameters}
+# Output:
+# { }
+#>-----------------------------------------------------------------------------
+LT:=proc(f,Vars::list, vars::list)
+local g, A, BC, d, flag, N, i, h,a,b:
+	#h := LeadingTerm(f, plex(op(Vars)))[1]*LeadingTerm(f, plex(op(Vars)))[2];
+	g := expand(f);
+	if type(g,`+`) then
+		if indets(g) subset {op(vars)}=false then
+			A := [op(g)];
+			#A := RemoveParams(seperate_out,vars);
+			#if nops(A)<>0 then
+			#A:=sort(A, (a,b)->degree(a,{op(Vars)})<degree(b,{op(Vars)}));
+			A := sort(A,(a,b)->SortLT(a,b,Vars,vars));
+			d := degree(A[1],{op(Vars)});
+			flag := false;
+			N := NULL;
+			for i from 1 to nops(A) while flag=false do 
+				if degree(A[i],{op(Vars)})=d then
+					N := N, A[i];
+				else
+					flag := true;
+				fi:
+			od:
+			BC := [N];
+			BC := sort(BC, (a,b)->TestOrder(b, a, plex(op(Vars))));
+			BC := [seq([j,simplify(j/LeadingCoefficient(j,plex(op(Vars),op(vars))))],j=BC)];
+			BC := sort(BC, (a,b)->SortLTEnd(a[2],b[2],Vars,vars));
+			#h := LeadingTerm(BC[1], plex(op(vars)))[1]*LeadingTerm(BC[1], plex(op(vars)))[2];
+			RETURN(BC[1][1]);
+		else
+			h := LeadingTerm(g, plex(op(vars)))[1]*LeadingTerm(g, plex(op(vars)))[2];
+			return(h);	
+		end if:
+	else
+		RETURN(g);
+	fi;
+end proc:
+#<-----------------------------------------------------------------------------
+# Function: {LM}
+# Description: {returns leading monomial of a polynomial}
+# Calling sequence:
+# {LM(f, Vars, vars)}
+# Input:
+# { f : a polynomial }
+# { Vars : list of variables}
+# { vars : list of parameters}
+# Output:
+# { }
+#>-----------------------------------------------------------------------------
+LM:=proc(f,Vars::list,vars::list)
+	return(LeadingMonomial(LT(f, Vars, vars), plex(op(Vars), op(vars))));
+end proc:
+#<-----------------------------------------------------------------------------
+# Function: {Spoly}
+# Description: {computes spolynomial of two given polynomials}
+# Calling sequence:
+# {Spoly(f, g, Vars, vars)}
+# Input:
+# { f : a polynomial}
+# { g : a polynomial}
+# { Vars : list of variables}
+# { vars : list of parameters}
+# Output:
+# { }
+#>-----------------------------------------------------------------------------
+Spoly:=proc(f,g,Vars::list,vars::list)
+local a:
+
+	a := lcm(LM(f, Vars, vars), LM(g, Vars, vars));
+	return(simplify(a*f/LT(f, Vars, vars)-a*g/LT(g, Vars, vars)));
+end proc:
+#<-----------------------------------------------------------------------------
+# Function: {ecart}
+# Description: {computes ecart of a polynomial say f which is the difference between degree of f and degree of LT(f) }
+# Calling sequence:
+# {ecart(f, Vars, vars)}
+# Input:
+# { f : a polynomial}
+# { Vars : a list of variables}
+# { vars : a list of parameters}
+# Output:
+# { }
+#>-----------------------------------------------------------------------------
+ecart:=proc(f,Vars::list,vars::list)
+	return(degree(f,{op(Vars)})-degree(LT(f, Vars, vars),{op(Vars)}));
+end proc:
+#<-----------------------------------------------------------------------------
+# Function: {MoraNFM}
+# Description: {returns Mora normal form of a polynomial w.r.t a list of polynomials}
+# Calling sequence:
+# {MoraNFM(f, F, Vars, vars)}
+# Input:
+# { f : a polynomial }
+# { F : a list of polynomials}
+# { Vars : a list of variables }
+# { vars : a list of parameters}
+# Output:
+# { }
+#>-----------------------------------------------------------------------------
+MoraNFM:=proc(f,F::list,Vars::list,vars::list)
+local h, L, M, A, g, l,a:
+
+	h := f;
+	L := F;
+	l := x->divide(LM(h, Vars, vars), LM(x, Vars, vars));
+	M := select(l, L);
+	while h<>0 and nops(M)<>0 do
+		A := sort(M, (a,b)->NEWTEST(a, b, Vars, vars));
+		g := A[1];
+		if ecart(g,Vars,vars)>ecart(h,Vars,vars) then
+			L := [op(L), h];
+		fi;
+		h := simplify(h-LT(h, Vars, vars)*g/LT(g, Vars, vars));
+		if h<>0 then 
+			a := y->divide(LM(h, Vars, vars), LM(y, Vars, vars));
+			M := select(a, L);
+		fi;
+	od;
+	RETURN(h);
+end proc:
+#<-----------------------------------------------------------------------------
+# Function: {TESTmin}
+# Description: {}
+# Calling sequence:
+# {}
+# Input:
+# {  }
+# {  }
+# { }
+# { }
+# Output:
+# { }
+#>-----------------------------------------------------------------------------
+TESTmin:=proc(A,B,Vars,vars)
+
+	if indets(A) subset {op(vars)}=true and indets(B) subset {op(vars)}=true then
+		if TestOrder(A,B,plex(op(vars)))=true then
+			return(true);
+		elif TestOrder(A,B,plex(op(vars)))=false then
+			return(false);
+		end if:
+
+	elif indets(A) subset {op(vars)}=true and indets(B) subset {op(vars)}=false  then
+		return(true);
+	elif indets(A) subset {op(vars)}=false and indets(B) subset {op(vars)}=true  then
+		return(false);
+	elif indets(A) subset {op(vars)}=false and indets(B) subset {op(vars)}=false  then
+		if degree(A, {op(Vars)})<degree(B,{op(Vars)}) then
+			return(false);
+		elif degree(A,{op(Vars)})>degree(B,{op(Vars)}) then
+			return (true);
+		elif degree(A,{op(Vars)})=degree(B,{op(Vars)}) and TestOrder(A,B,plex(op(Vars)))=true then
+			return (true);
+		elif degree(A,{op(Vars)})=degree(B,{op(Vars)}) and TestOrder(A,B,plex(op(Vars)))=false then
+			return (false);
+		fi;
+	end if:
+end proc:
+#<-----------------------------------------------------------------------------
+# Function: {TEST}
+# Description: {}
+# Calling sequence:
+# {TEST(A, B, Vars, vars)}
+# Input:
+# { A }
+# { B }
+# { Vars }
+# { vars }
+# Output:
+# { }
+#>-----------------------------------------------------------------------------
+TEST:=proc(A,B,Vars,vars)
+
+	if indets(A) subset {op(vars)}=true and indets(B) subset {op(vars)}=true then
+		if TestOrder(A,B,plex(op(vars)))=true then
+			return(false);
+		elif TestOrder(A,B,plex(op(vars)))=false then
+			return(true);
+		end if:
+
+	elif indets(A) subset {op(vars)}=true and indets(B) subset {op(vars)}=false  then
+		return(true);
+	elif indets(A) subset {op(vars)}=false and indets(B) subset {op(vars)}=true  then
+		return(false);
+	elif indets(A) subset {op(vars)}=false and indets(B) subset {op(vars)}=false  then
+		if evalb(subs([seq(i=1,i=vars)],A)=subs([seq(j=1,j=vars)],B))=true then
+			if TestOrder(A,B,plex(op(vars)))=true then
+				return(false);
+			else
+				return(true);
+			end if:
+		else
+			return(true);
+		end if:
+		if degree(A, {op(Vars)})<degree(B,{op(Vars)}) then
+			return(true);
+		elif degree(A,{op(Vars)})>degree(B,{op(Vars)}) then
+			return (false);
+		elif degree(A,{op(Vars)})=degree(B,{op(Vars)}) and TestOrder(A,B,plex(op(Vars)))=true then
+			return (false);
+		elif degree(A,{op(Vars)})=degree(B,{op(Vars)}) and TestOrder(A,B,plex(op(Vars)))=false then
+			return (true);
+		fi;
+	end if:
+end proc:
+#<-----------------------------------------------------------------------------
+# Function: {NEWTEST}
+# Description: {}
+# Calling sequence:
+# {NEWTEST(Z, W, Vars, vars)}
+# Input:
+# { Z }
+# { W }
+# { Vars }
+# { vars }
+# Output:
+# { }
+#>-----------------------------------------------------------------------------
+NEWTEST:=proc(Z,W,Vars,vars)
+	if ecart(Z,Vars,vars)<ecart(W,Vars,vars) then
+		return(true);
+	elif ecart(Z,Vars,vars)>ecart(W,Vars,vars) then
+	#else
+		return(false);
+	elif ecart(Z,Vars,vars)=ecart(W,Vars,vars) and TEST(LM(Z,Vars,vars),LM(W,Vars,vars),Vars,vars)=true then
+		return(true);
+	elif ecart(Z,Vars,vars)=ecart(W,Vars,vars) and TEST(LM(Z,Vars,vars),LM(W,Vars,vars),Vars,vars)=false then
+		return(false);
+	fi;
+end proc:
+#<-----------------------------------------------------------------------------
+# Function: {CheckIntersct}
+# Description: {}
+# Calling sequence:
+# {CheckIntersct(G_in, Vars_in)}
+# Input:
+# {G_in}
+# {Vars_in}
+# Output:
+# { }
+#>-----------------------------------------------------------------------------
+CheckIntersct:= proc(G_in, Vars_in) 
+local A, elem_in:
+
+	A := [];
+	for elem_in in G_in do
+		if indets(elem_in) subset {op(Vars_in)} then #nops(indets(elem_in)) <> 0 and
+			A := [op(A), elem_in];
+		end if:
+	end do:
+	return([A, G_in minus {op(A)}]);
+end proc:
+#<-----------------------------------------------------------------------------
+# Function: {MakePair}
+# Description: {constructs a list of pairs from the initial list of polynomials}
+# Calling sequence:
+# {MakePair(L)}
+# Input:
+# { L : a list of polynomials}
+# Output:
+# { }
+#>-----------------------------------------------------------------------------
+MakePair:=proc(L)
+local A, BB, i, m, W,j;
+
+	A := L;
+	BB := NULL;
+	for i in A do
+		m := A[1];
+		A := A[2 .. -1];
+		W := [seq([m, j], j in A)];
+		BB := BB, op(W);
+	od;
+	return([BB]);
+end proc:
+#<-----------------------------------------------------------------------------
+# Function: {StandardBasis}
+# Description: {returns standard basis}
+# Calling sequence:
+# {StandardBasis(F, Vars, vars)}
+# Input:
+# { F : a list of polynomials}
+# { Vars : a list of variables}
+# { vars : a list of parameters}
+# Output:
+# { }
+#>-----------------------------------------------------------------------------
+StandardBasis:=proc(F::list,Vars::list,vars::list)
+local G, P, A, B, h, Q, i, high:
+	G := F;
+	P := MakePair(F);
+	while nops(P)<>0 do 
+		A := P[1];
+		B := Spoly(A[1], A[2], Vars, vars);
+		h := MoraNFM(B, G, Vars, vars);
+		P := P[2 .. -1];
+		if h<>0 then 
+			Q := NULL;
+			for i in G do
+				Q := Q, [h, i];
+			od;
+			P := [op(P), Q];
+			G := [op(G), h];
+		fi;
+	od;
+	return(G);
+end proc:
+#<-----------------------------------------------------------------------------
+# Function: {CompleteReduce}
+# Description: {}
+# Calling sequence:
+# {}
+# Input:
+# { }
+# {}
+# {}
+# Output:
+# { }
+#>-----------------------------------------------------------------------------
+CompleteReduce := proc(G, Vars, vars)
+local L, f, h_new, L_minimal, g, h, B, pair_list, L_mini, elem_in  :
+	L := G;
+	for f in G do
+		L := [op({op(L)} minus {f})];
+		h_new := MoraNFM(f, L, Vars, vars);
+		if h_new <> 0 then
+			L := [op(L), h_new];
+		else
+			L := L;
+		end if:
+	end do:
+	L_minimal := L;
+	pair_list := MakePair(L_minimal);
+	for elem_in in pair_list do
+		if divide(LM(elem_in[1], Vars, vars),LM(elem_in[2], Vars, vars)) then
+			L_minimal := {op(L_minimal)} minus {elem_in[1]};
+		elif divide(LM(elem_in[2], Vars, vars),LM(elem_in[1], Vars, vars)) then
+			L_minimal := {op(L_minimal)} minus {elem_in[2]};
+		end if:
+	end do:
+	L_minimal := [op(L_minimal)];#return(L_minimal);
+	L_mini := L_minimal;
+	for g in L_mini do
+		h := g;
+		B := LT(g, Vars, vars);
+		while g<>0 do 
+			g := g-LT(g, Vars, vars);
+			g := MoraNFM(g,[op({op(L_minimal)} minus {h})], Vars, vars);
+			B :=B+LT(g, Vars, vars);
+		end do:
+		if B<>0 then
+			#L_minimal := [op({op(L_minimal)} minus {h}), B];
+			L_minimal := [op(L_minimal), B];
+		else
+			L_minimal := [op(L_minimal)];
+		end if:
+	end do:
+	return  L_minimal;
+end proc:
+#<-----------------------------------------------------------------------------
+# Function: {MDBasis}
+# Description: {This is an algorithm from Dr Hashemi's files but it contains Reduced GB }
+# Calling sequence:
+# {}
+# Input:
+# { G : a list of parametric polynomials }
+# { T : an ordering with parameters less than variables : it must be the product ordering }
+# { as its definition is saying but I only chose plex(vars, params)}
+# Output:
+# { }
+#>-----------------------------------------------------------------------------
+DicksonLM := proc(f, Vars)
+	return(LeadingMonomial(LTDickson(f, Vars), plex(op(Vars))));
+end proc:
+
+SpolyDickson := proc(f, g, Vars)
+local a:
+	a := lcm(DicksonLM(f, Vars), DicksonLM(g, Vars));
+	return(simplify(a*f/LTDickson(f, Vars)-a*g/LTDickson(g, Vars)));
+end proc:
+
+ecartDickson := proc(f, Vars)
+	return(degree(f,{op(Vars)})-degree(LTDickson(f, Vars),{op(Vars)}));
+end proc:
+
+NewTestDickson:=proc(Z, W, Vars::list)
+	if ecartDickson(Z,Vars)<ecartDickson(W,Vars) then
+		return (true);
+	elif ecartDickson(Z,Vars)>ecartDickson(W,Vars) then
+		return(false);
+	elif ecartDickson(Z,Vars)=ecartDickson(W,Vars) and ExtraTestDickson(DicksonLM(Z,Vars),DicksonLM(W,Vars),Vars)=true then
+		return (true);
+	elif ecartDickson(Z,Vars)=ecartDickson(W,Vars) and ExtraTestDickson(DicksonLM(Z,Vars),DicksonLM(W,Vars),Vars)=false then
+		return (false);
+	fi;
+end proc:
+
+ExtraTestDickson:=proc(A, B, Vars::list)
+local a,b;
+	a := A;
+	b := B;
+	if degree(a, {op(Vars)})<degree(b, {op(Vars)}) then
+		return (true);
+	elif degree(a, {op(Vars)})>degree(b, {op(Vars)}) then
+		return (false);
+	elif degree(a, {op(Vars)})=degree(b, {op(Vars)}) and TestOrder(a,b,plex(op(Vars)))=true then
+		return (false);
+	elif degree(a, {op(Vars)})=degree(b, {op(Vars)}) and TestOrder(a,b,plex(op(Vars)))=false then
+		return (true);
+	fi;
+end proc:
+
+MoraDickson := proc(f, F, Vars) 
+local h, L, l, M, AA, W, g, a, i;
+	h := f;
+	L := F;
+	l := x->divide(DicksonLM(h, Vars), DicksonLM(x, Vars));
+	M := select(l, L);
+	while h<>0 and nops(M)<>0 do
+		W:=sort(M,(a,b)->NewTestDickson(a,b,Vars));
+		g := W[1];
+		if ecartDickson(g,Vars)>ecartDickson(h,Vars) then
+			L := [op({h, op(L)})];
+		fi;
+		h := simplify(h-LTDickson(h, Vars)*g/LTDickson(g, Vars));
+		if h<>0 then
+			a := y->divide(DicksonLM(h, Vars), DicksonLM(y, Vars));
+			M := select(a, L);
+		fi;
+	od;
+	RETURN(h);
+end proc:
+
+StandardBasisDickson := proc(F, Vars)
+local G, P, A, B, h, Q, i, high,j,qq, Denom_out, G_end :
+	G := F;
+	P := MakePair(F);
+	while nops(P)<>0 do 
+		A := P[1];
+		B := SpolyDickson(A[1], A[2], Vars);
+		h := MoraDickson(B, G, Vars);
+		P := P[2 .. -1];
+		if h<>0 then 
+			Q := NULL;
+			for i in G do
+				Q := Q, [h, i];
+			od;
+			P := [op(P), Q];
+			G := [op(G), h];
+		fi;
+	od;
+	Denom_out := [seq(denom(j), j=G)];
+	G_end := lcm(op(Denom_out));
+	G_end := [seq(expand((G_end)*qq),qq=G)];
+	return(G_end);
+end proc:
+
+MDBasis := proc(F, Vars)
+local F_out, pair_list,elem_in:
+ 
+	F_out :=F;
+	pair_list := MakePair(F_out);
+	for elem_in in pair_list do
+		if divide(DicksonLM(elem_in[1], Vars),DicksonLM(elem_in[2], Vars)) then
+			F_out := {op(F_out)} minus {elem_in[1]};
+		elif divide(DicksonLM(elem_in[2], Vars),DicksonLM(elem_in[1], Vars)) then
+			F_out := {op(F_out)} minus {elem_in[2]};
+		end if:
+	end do:
+	return([op(F_out)]);
+end proc:
+#<-----------------------------------------------------------------------------
+# Function: {He}
+# Description: {returns a list of head coefficients of elements in G_1 for when it is a groebner basis}
+# Description: {in the case that the list is empty it returns 1 }
+# Calling sequence:
+# {He(G_in, Vars1_in)}
+# Input:
+# {G_in}
+# {Vars1_in}
+# Output:
+# { }
+#>-----------------------------------------------------------------------------
+He:= proc(G_in, Vars1_in)
+local hcoef, func_in:
+
+	hcoef := [];
+	for func_in in G_in do
+			hcoef := [op(hcoef), LeadingCoefficient(LTnew(func_in, Vars1_in), plex(op(Vars1_in)))];
+	end do:
+	if nops( hcoef )=0 then
+		return([1,[]]);
+	else 
+		return ([lcm(op(hcoef)),[op({op( hcoef)} minus {1})]]);
+	end if:
+end proc:
+#<-----------------------------------------------------------------------------
+# Function: {MinimalSTD}
+# Description: { }
+# Calling sequence:
+# {}
+# Input:
+# { }
+# {}
+# {conditions}
+# { }
+# {}
+# {}
+# Output:
+# { }
+#>-----------------------------------------------------------------------------
+MinimalSTD := proc(L_in, vars, params)
+local L, pair_list, elem_in:
+	L := L_in;
+	pair_list := MakePair(L);
+	for elem_in in pair_list do
+		if divide(LM(elem_in[1], vars, params),LM(elem_in[2], vars, params)) then
+			L := {op(L)} minus {elem_in[1]};
+		elif divide(LM(elem_in[2], vars, params),LM(elem_in[1], vars, params)) then
+			L := {op(L)} minus {elem_in[2]};
+		end if:
+	end do:	
+	return([op(L)]);
+end proc:
+#<-----------------------------------------------------------------------------
+# Function: {PGBMain}
+# Description: { }
+# Calling sequence:
+# {}
+# Input:
+# { F: list of parametric polynomials}
+# { L : a list containing E : list of zero conditions and N : list of non-zero}
+# {conditions}
+# { vars : list of variables}
+# { params : list of parameters}
+# {Tord : term ordering}
+# Output:
+# { }
+#>-----------------------------------------------------------------------------
+PGB := []:
+PGBMain := proc(F::list,L::list,vars::list,params::list)
+#option trace;
+local G,IntersecAndRest,Gr,Gm,lcmAndCoeff,h,two_prod, i, j:
+global PGB:
+	if IsConsistent(L)=false then 
+		return();
+	end if:
+	###StandardBasis
+	#G := StandardBasis([op(F),op(L[1])],vars,params);
+	G := ImprovedMMT([op(F),op(L[1])],vars,params);
+	###MinimalSTD
+	G := MinimalSTD(G, vars, params);
+	if {1} subset {op(G)} then 
+		return([(L[1],L[2],{1})]);
+	end if:
+	IntersecAndRest := CheckIntersct({op(G)},params);
+	Gr := IntersecAndRest[1];
+	if IsConsistent([Gr,L[2]])=false then 
+		return(PGB);
+	else
+		Gm := MDBasis(IntersecAndRest[2],vars);
+		lcmAndCoeff := He(Gm, vars);
+		h := lcmAndCoeff[1];
+		two_prod := ProducT(L[2],[h]);
+		if IsConsistent([Gr,two_prod])=true then 
+			PGB := PGB,[(Gr,two_prod,Gm)];
+		end if:
+		if nops(lcmAndCoeff[2])=0 then 
+		return(PGB);
+		#PGB := PGB, PGBMain([op({op(G)} minus {op(Gr)})],[Gr,L[2]],vars,params,Tord);
+		else 
+		return(PGB,PGBMain([op({op(G)} minus {op(Gr)})],[[op(Gr),lcmAndCoeff[2][1]],L[2]],vars,params), seq(PGBMain([op({op(G)} minus {op(Gr)})],[[op(Gr),lcmAndCoeff[2][i]],ProducT(L[2],[mul(lcmAndCoeff[2][j],j=1..i-1)])],vars,params),i=2..nops(lcmAndCoeff[2])));	#{("other cases",{1})}
+	end if:
+	end if:
+end proc:
+
+MinimalOutput := proc(L, vars)
+local A, branch_in:
+	A := NULL;
+	for branch_in in L do
+		branch_in[3] := MDBasis(branch_in[3], vars);
+		A := A, branch_in:
+	end do:
+	return A;
+end proc:
+
+PGBFinal := proc(L, vars, params)
+local step_one, step_two:
+	step_one := PGBMain(L, [[],[1]], vars, params);
+	step_two := MinimalOutput([op({step_one} minus {[]})], vars);
+	return(	step_two);	
+end proc:
+#<-----------------------------------------------------------------------------
+# Function: {IsConsistent}
+# Description: { }
+# Calling sequence:
+# {}
+# Input:
+# { L : a list containing E and N }
+# Output:
+# { }
+#>-----------------------------------------------------------------------------
+#IsConsistent := proc(L::list,params)
+#local elem_in:
+
+	#for elem_in in L[2] do
+		#if RadicalMembershipLocal(elem_in, [op(L[1])],params)=false  then
+			#return(true);
+		#end if:
+	#end do:
+	#return(false);	
+#end proc:
+#<-----------------------------------------------------------------------------
+IsConsistent := proc(L::list)
+local elem_in:
+	for elem_in in L[2] do
+		if RadicalMembership(elem_in, <op(L[1])>)=false  then
+			return(true);
+		end if:
+	end do:
+	return(false);	
+end proc:
+#<-----------------------------------------------------------------------------
+# Function: {}
+# Description: { }
+# Calling sequence:
+# {}
+# Input:
+# {}
+# {}
+# Output:
+# { }
+#>-----------------------------------------------------------------------------
+ProducT := proc (A, B)
+local u, v:
+ RETURN(simplify(expand([seq(seq(u*v, u = A), v = B)]))) 
+end proc:
+#<-----------------------------------------------------------------------------
+# Function: {}
+# Description: { }
+# Calling sequence:
+# {}
+# Input:
+# {}
+# {}
+# Output:
+# { }
+#>-----------------------------------------------------------------------------
+RadicalMembershipLocal := proc(f, L, params)
+local L_new,eliminate_y,g:
+	L_new := [op(L),1-y*f];
+	eliminate_y := CompleteReduce(StandardBasis(L_new,[y],params),[y],params);
+	for g in eliminate_y do
+		if LM(g,[y],params)=1  then #is is posiible to have a constant number like 5 in the output?
+			return(true);
+		end if:
+	end do:
+	return(false);
+end proc:
+#<-----------------------------------------------------------------------------
+# Function: {}
+# Description: { }
+# Calling sequence:
+# {}
+# Input:
+# {}
+# {}
+# Output:
+# { }
+#>-----------------------------------------------------------------------------
+# Function: {LTN}
+# Briefly: {return the leading term of a given polynomial with respect to anti-graded lexicographic ordering}
+# Calling sequence:
+# {LTN(f, Vars) }
+# Input:
+# {f : a polynomial}
+# {Vars : }
+# Output:
+# {leading term of f }
+#>-----------------------------------------------------------------------------
+LTN:=proc(f, Vars::list)
+local g, A, BC, d, flag, N, i;
+	g := expand(f);
+	if type(g,`+`) then
+		A := [op(g)];
+		A := sort(A, (a,b)->degree(a, {op(Vars)})<degree(b, {op(Vars)}));
+		d := degree(A[1], {op(Vars)});
+		flag := false;
+		N := NULL;
+		for i from 1 to nops(A) while flag=false do 
+			if degree(A[i], {op(Vars)})=d then
+				N := N, A[i];
+			else
+				flag := true;
+			fi;
+		od;
+		BC := [N];
+		BC := sort(BC,(a,b)->TestOrder(b,a, plex(op(Vars))));
+		RETURN(BC[1]);
+	else
+		RETURN(g);
+	fi:
+end proc:
+#<-----------------------------------------------------------------------------
+# Function: {LMN }
+# Briefly: {return the leading monomial of a given polynomial with respect to anti-graded lexicographic orderin}
+# Calling sequence:
+# {LMN(f, Vars) }
+# Input:
+# {f : a polynomial }
+# {Vars : variables }
+# Output:
+# { leading monomial of f}
+#>----------------------------------------------------------------------------- 
+LMN:=proc(f, Vars::list)
+	return(LeadingMonomial(LTN(f, Vars), plex(op(Vars))));
+end proc:
+#<-----------------------------------------------------------------------------
+# Function: {SpolyN }
+# Briefly: {return spolynomial of two polynomials}
+# Calling sequence:
+# {SpolN(f, g, Vars) }
+# Input:
+# {f : a polynomial }
+# {g : a polynomial }
+# {Vars : list of variables}
+# Output:
+# {spolynomial of f and g }
+#>----------------------------------------------------------------------------- 
+SpolyN:=proc(f, g, Vars::list)
+local a;
+	a := lcm(LMN(f, Vars), LMN(g, Vars));
+	return(simplify(a*f/LTN(f, Vars)-a*g/LTN(g, Vars)));
+end proc:
+#<-----------------------------------------------------------------------------
+# Function: {ecartN }
+# Briefly: {compute degree(f)-degree(LT(f))}
+# Calling sequence:
+# {ecartN(f, Vars) }
+# Input:
+# {f : a polynomial }
+# {Vars : a list of variables }
+# Output:
+# {an integer number }
+#>-----------------------------------------------------------------------------
+ecartN:=proc(f, Vars::list)
+	return(degree(f)-degree(LTN(f, Vars)));
+end proc:
+#<-----------------------------------------------------------------------------
+# Function: {ExtraTestN }
+# Briefly: {compares two monomials in terms of degree. In the case that they have the same degree,}
+#{TestOrder function is used for comparison}
+# Calling sequence:
+# {ExtraTestN(A, B, Vars) }
+# Input:
+# {A : a monomial }
+# {B : a monomial}
+# {Vars : a list of variables }max
+# Output:
+# { boolean : if A<B then returns 'true'; 'false' otherwise }
+#>-----------------------------------------------------------------------------       
+ExtraTestN:=proc(A, B, Vars::list)
+local a,b;
+	a := A;
+	b := B;
+	if degree(a)<degree(b) then
+		return (true);
+	elif degree(a)>degree(b) then
+		return (false);
+	elif degree(a)=degree(b) and TestOrder(a,b,plex(op(Vars)))=true then
+		return (false);
+	elif degree(a)=degree(b) and TestOrder(a,b,plex(op(Vars)))=false then
+		return (true);
+	fi;
+end proc:
+#<-----------------------------------------------------------------------------
+# Function: {NewTestN}
+# Briefly: {compares two polynomials in terms of ecart. In the case that they have the same ecart,}
+#{ExtraTestN function is used for comparison}}
+# Calling sequence:
+# {NewTestN(Z, W, Vars)}
+# Input:
+# {Z : a polynomial}
+# {W: apolynomial }
+# {Vars : a list of variables}
+# Output:
+# { boolean : if Z<W it returns true otherwise it returns false}
+#>-----------------------------------------------------------------------------    
+NewTestN:=proc(Z, W, Vars::list)
+	if ecartN(Z,Vars)<ecartN(W,Vars) then
+		return (true);
+	elif ecartN(Z,Vars)>ecartN(W,Vars) then
+		return(false);
+	elif ecartN(Z,Vars)=ecartN(W,Vars) and ExtraTestN(LMN(Z,Vars),LMN(W,Vars),Vars)=true then
+		return (true);
+	elif ecartN(Z,Vars)=ecartN(W,Vars) and ExtraTestN(LMN(Z,Vars),LMN(W,Vars),Vars)=false then
+		return (false);
+	fi;
+end proc:
+#<-----------------------------------------------------------------------------
+# Function: { }
+# Briefly: {}
+# Calling sequence:
+# { }
+# Input:
+# { }
+# { }
+# Output:
+# { }
+#<-----------------------------------------------------------------------------
+# Function: {MoraNFMN }
+# Briefly: {computes mora remainder of a given polynomial with respect to a list of polynomials}
+# Calling sequence:
+# {MoraNFMN(f, F, Vars)}
+# Input:
+# {f : a polynomial}
+# {F : a list of polynomials}
+# {Vars : a list of variables}
+# Output:
+# { mora remainder}
+#>-----------------------------------------------------------------------------
+MoraNFMN:=proc(f,F::list,Vars::list) 
+local h, L, l, M, AA, W, g, a, i;
+	h := f;
+	L := F;
+	l := x->divide(LTN(h, Vars), LTN(x, Vars));
+	M := select(l, L);
+	while h<>0 and nops(M)<>0 do
+		W := sort(M,(a,b)->NewTestN(a,b,Vars));
+		#W := sort(M, (a,b)->WeightEcart(a,b, Vars));
+		g := W[1];
+		if ecartN(g,Vars)>ecartN(h,Vars) then
+			L := [op({h, op(L)})];
+		fi;
+		h := simplify(h-LTN(h, Vars)*g/LTN(g, Vars));
+		if h<>0 then
+			a := y->divide(LTN(h, Vars), LTN(y, Vars));
+			M := select(a, L);
+		fi;
+	od;
+	RETURN(h);
+end proc:
+#<-----------------------------------------------------------------------------
+# Function: {StandardBasisSimple}
+# Description: {returns standard basis}
+# Calling sequence:
+# {StandardBasis(F, Vars)}
+# Input:
+# { F : a list of polynomials}
+# { Vars : a list of variables}
+# Output:
+# { }
+#>-----------------------------------------------------------------------------
+StandardBasisSimple:=proc(F::list,Vars::list)
+local G, P, A, B, h, Q, i, high:
+	G := F;
+	P := MakePair(F);
+	while nops(P)<>0 do 
+		A := P[1];
+		B := SpolyN(A[1], A[2], Vars);
+		h := MoraNFMN(B, G, Vars);
+		P := P[2 .. -1];
+		if h<>0 then 
+			Q := NULL;
+			for i in G do
+				Q := Q, [h, i];
+			od;
+			P := [op(P), Q];
+			G := [op(G), h];
+		fi;
+	od;
+	return(G);
+end proc:
+#<-----------------------------------------------------------------------------
+# Function: {CompleteReduceSimple}
+# Description: {}
+# Calling sequence:
+# {}
+# Input:
+# { }
+# {}
+# {}
+# Output:
+# { }
+#>-----------------------------------------------------------------------------
+CompleteReduceSimple := proc(G, Vars)
+local L, f, h_new, L_minimal, g, h, B:
+	L := G;
+	for f in G do
+		L := [op({op(L)} minus {f})];
+		h_new := MoraNFMN(f, L, Vars);
+		if h_new <> 0 then
+			L := [op(L), h_new];
+		else
+			L := L;
+		end if:
+	end do:
+	L_minimal := L;
+	for g in L do
+		h := g;
+		B := LTN(g, Vars);
+		while g<>0 do
+			g := g-LTN(g, Vars);
+			g := MoraNFMN(g,L_minimal, Vars);
+			B :=B+LTN(g, Vars);
+		end do:
+		L_minimal := [op({op(L_minimal)} minus {h}), B];
+	end do:
+	return  L_minimal;	
+end proc:
+#<-----------------------------------------------------------------------------
+# Function: {IsStandard}
+# Description: {}
+# Calling sequence:
+# {}
+# Input:
+# { }
+# {}
+# {}
+# Output:
+# { }
+#>-----------------------------------------------------------------------------
+IsStandard := proc(F_in, G_in, Vars_in)
+local flag, elem, Pair_new, new_elem,G_Basis,poly_in :
+	flag := false;
+	#G_Basis := CompleteReduceSimple(StandardBasisSimple(F_in, Vars_in), Vars_in);
+	G_Basis := StandardBasisSimple(F_in, Vars_in);
+	for poly_in in G_in while flag=false  do
+		if MoraNFMN(poly_in, G_Basis, Vars_in)<>0 then
+			flag := true;print("not passed");
+		end if:	
+	end do:
+	for elem in F_in while flag=false do
+		if MoraNFMN(elem, G_in, Vars_in)<>0 then 
+			flag := true;print("not passed");
+		end if:
+	end do:
+	Pair_new := MakePair(G_in);
+	for new_elem in Pair_new while flag=false do
+		if MoraNFMN(SpolyN(new_elem[1],new_elem[2],Vars_in),G_in,Vars_in)<>0 then 
+			flag := true;print("not passed");
+		end if:
+	end do:
+	if flag=false then
+		print("passed");
+	end if:
+end proc:
+#<-----------------------------------------------------------------------------
+# Function: {}
+# Description: {}
+# Calling sequence:
+# {  }
+# Input:
+# { }
+# { }
+# { }
+# Output:
+# { }
+#>-----------------------------------------------------------------------------
+SubsValues := proc(F_in, PSystem_in, Vars_in, vars_in)
+local PSystem_out, Val_in, G_basis, F_ready, out_put, i, sys, j, jj:
+	PSystem_out := PSystem_in;
+	if nops(PSystem_out[1])= 0 then
+		PSystem_out := 	PSystem_out[2..-1];
+	end if:
+	for i from 1 to 1000 do 
+		Val_in := [seq(elem=Generate(integer(range = -100..100)),elem=vars_in)];
+		for sys in PSystem_out do 
+			if {seq(evalb(subs(Val_in, j) = 0), j=sys[1])} subset {true} and {true} subset	{seq(evalb(subs(Val_in, j)<>0), j=sys[2])} then 
+				G_basis := [op({op(subs(Val_in, [op(sys[3])]))} minus {0})];
+				F_ready := [op({op(subs(Val_in, F_in))} minus {0})];
+				out_put := IsStandard(F_ready, G_basis, Vars_in);	
+			end if:	
+		end do:
+	end do:
+end proc:

@@ -1,0 +1,257 @@
+#################################################
+# File:KapurGlobal.mm                           #
+#    Main function : PGBMain                    #
+#    Input :                                    #
+#    F : list of polynomials                    #
+#    L : [[], [1]]                              #
+#    vars : list of variables                   #
+#    params : list of parameters                #
+#    Description : Computes comprehensive       #
+#    Groebner system  using Kapur algorithm     #
+#    ======================================     #
+#    Authors Contact:                           #
+#    Amir Hashemi <amir.hashemi@cc.iut.ac.ir>   #
+#    Mahsa Kazemi <mahsa.kazemi@math.iut.ac.ir> #
+#################################################
+with(Groebner):
+with(PolynomialIdeals):
+with(RandomTools):
+#<-----------------------------------------------------------------------------
+# Function: {CheckIntersct}
+# Description: {}
+# Calling sequence:
+# {CheckIntersct(G_in, Vars_in)}
+# Input:
+# {G_in}
+# {Vars_in}
+# Output:
+# { }
+#>-----------------------------------------------------------------------------
+CheckIntersct:= proc(G_in, Vars_in) 
+local A, elem_in:
+
+	A := [];
+	for elem_in in G_in do
+		if indets(elem_in) subset {op(Vars_in)} then #nops(indets(elem_in)) <> 0 and
+			A := [op(A), elem_in];
+		end if:
+	end do:
+	return([A, G_in minus {op(A)}]);
+end proc:
+#<-----------------------------------------------------------------------------
+# Function: {MDBasis}
+# Description: { }
+# Calling sequence:
+# {}
+# Input:
+# { G : a list of parametric polynomials }
+# { T : an ordering with parameters less than variables : it must be the product ordering }
+# { as its definition is saying but I only chose plex(vars, params)}
+# Output:
+# { }
+#>-----------------------------------------------------------------------------
+MDBasis := proc(G, T)
+local ff, lmG, G1, i :
+	ff := NULL;
+	lmG := {seq(LeadingMonomial(G[i],T), i=1..nops(G))};
+	G1 := {op(Basis(lmG,T))};
+	for i from 1 to nops(G) do
+		if {LeadingMonomial(G[i],T)} subset G1 then
+			ff := ff, G[i];
+			G1 := G1 minus {LeadingMonomial(G[i],T)};
+		end if:
+	end do: 
+	return [ff];
+end proc:
+#<-----------------------------------------------------------------------------
+# Function: {He}
+# Description: {returns a list of head coefficients of elements in G_1 for when it is a groebner basis}
+# Description: {in the case that the list is empty it returns 1 }
+# Calling sequence:
+# {He(G_in, Vars1_in)}
+# Input:
+# {G_in}
+# {Vars1_in}
+# Output:
+# { }
+#>-----------------------------------------------------------------------------
+He:= proc(G_in, Vars1_in, T)
+local hcoef, func_in:
+
+	hcoef := [];
+	for func_in in G_in do
+			hcoef := [op(hcoef), LeadingCoefficient(func_in, T(op(Vars1_in)))];
+	end do:
+	if nops( hcoef )=0 then
+		return([1,[]]);
+	else 
+		return ([lcm(op(hcoef)),[op({op( hcoef)} minus {1})]]);
+	end if:
+end proc:
+#<-----------------------------------------------------------------------------
+# Function: {PGBMain}
+# Description: { }
+# Calling sequence:
+# {}
+# Input:
+# { F: list of parametric polynomials}
+# { L : a list containing E : list of zero conditions and N : list of non-zero}
+# {conditions}
+# { vars : list of variables}
+# { params : list of parameters}
+# {Tord : term ordering}
+# Output:
+# { }
+#>-----------------------------------------------------------------------------
+PGB := []:
+PGBMain := proc(F::list,L::list,vars::list,params::list,Tord)
+local G,IntersecAndRest,Gr,Gm,lcmAndCoeff,h,two_prod, i, j:
+global PGB:
+	if IsConsistent(L)=false then 
+		return();
+	end if:
+	#G := Basis([op(F),op(L[1])],Tord(op(vars),op(params)));
+	G := Basis([op(F),op(L[1])],prod(Tord(op(vars)),Tord(op(params))));		
+	if {1} subset {op(G)} then
+		return([(L[1],L[2],{1})]);
+	end if:
+	IntersecAndRest := CheckIntersct({op(G)},params);
+	Gr := IntersecAndRest[1];
+	if IsConsistent([Gr,L[2]])=false then
+		return(PGB);
+	else
+		Gm := MDBasis(IntersecAndRest[2],prod(Tord(op(vars)),Tord(op(params))));
+		lcmAndCoeff := He(Gm, vars, Tord);
+		h := lcmAndCoeff[1];
+		two_prod := ProducT(L[2],[h]);
+		if IsConsistent([Gr,two_prod])=true then 
+			PGB := PGB,[(Gr,two_prod,Gm)];
+		end if:
+		if nops(lcmAndCoeff[2])=0 then 
+		return(PGB);
+		#PGB := PGB, PGBMain([op({op(G)} minus {op(Gr)})],[Gr,L[2]],vars,params,Tord);
+		else
+		return(PGB,PGBMain([op({op(G)} minus {op(Gr)})],[[op(Gr),lcmAndCoeff[2][1]],L[2]],vars,params,Tord), seq(PGBMain([op({op(G)} minus {op(Gr)})],[[op(Gr),lcmAndCoeff[2][i]],ProducT(L[2],[mul(lcmAndCoeff[2][j],j=1..i-1)])],vars,params,Tord),i=2..nops(lcmAndCoeff[2])));	#{("other cases",{1})}
+	end if:
+	end if:
+end proc:
+#<-----------------------------------------------------------------------------
+# Function: {IsConsistent}
+# Description: { }
+# Calling sequence:
+# {}
+# Input:
+# { L : a list containing E and N }
+# Output:
+# { }
+#>-----------------------------------------------------------------------------
+IsConsistent := proc(L::list)
+local elem_in:
+	#prod_NZs :=product(L[2][i], i=1..nops(L[2])); 
+	for elem_in in L[2] do
+		if RadicalMembership(elem_in, <op(L[1])>)=false  then
+			return(true);
+			#else
+			#return(false);
+		end if:
+	end do:
+	return(false);	
+end proc:
+#<-----------------------------------------------------------------------------
+# Function: {}
+# Description: { }
+# Calling sequence:
+# {}
+# Input:
+# {}
+# {}
+# Output:
+# { }
+#>-----------------------------------------------------------------------------
+ProducT := proc (A, B)
+local u, v:
+ RETURN(simplify(expand([seq(seq(u*v, u = A), v = B)]))) 
+end proc:
+#<-----------------------------------------------------------------------------
+# Function: {}
+# Description: { }
+# Calling sequence:
+# {}
+# Input:
+# { }
+# { }
+# Output:
+# { }
+#>-----------------------------------------------------------------------------
+IsGrobner := proc(F_in, G_in, Vars_in)
+local flag, elem, Pair_new, new_elem, G_Basis, poly_in:
+	flag := false;
+	G_Basis := Basis(F_in, plex(op(Vars_in)));
+	for poly_in in G_in while flag=false  do
+		if NormalForm(poly_in, G_Basis, plex(op(Vars_in)))<>0 then
+			flag := true;print("not passed");
+		end if:	
+	end do:
+	for elem in F_in while flag=false do
+		if NormalForm(elem, G_in, plex(op(Vars_in)))<>0 then
+			flag := true;print("not passed");
+		end if:
+	end do:
+	Pair_new := MakePair(G_in);
+	for new_elem in Pair_new while flag=false do
+		if NormalForm(SPolynomial(new_elem[1],new_elem[2],plex(op(Vars_in))),G_in,plex(op(Vars_in)))<>0 then
+			flag := true;print("not passed");
+		end if:
+	end do:
+	if flag=false then
+		print("passed");
+	end if:
+end proc:
+#<-----------------------------------------------------------------------------
+# Function: {SubsValues}
+# Description: { }
+# {}
+# Calling sequence:
+# {SubsValues(F_in, PSystem_in, Vars_in, vars_in)}
+# Input:
+# { F_in: a given ideal}
+# { PSystem_in: the output of comprehensive groebner system }
+# { Vars_in: main variables}
+# { vars_in: parameters}
+# Output:
+# { }
+# Note :
+# { For when the intersection of zero and nonzero conditions are non empty the algorithm returns nothing}
+# {thus it case of not passed there must be a serious problem somewhere}
+#>-----------------------------------------------------------------------------
+SubsValues := proc(F_in, PSystem_in, Vars_in, vars_in)
+local PSystem_out, Val_in, G_basis, F_ready, out_put, i, sys, j, jj:
+	PSystem_out := PSystem_in;
+	if nops(PSystem_out[1])= 0 then
+		PSystem_out := 	PSystem_out[2..-1];
+	end if:
+	for i from 1 to 1000 do 
+		Val_in := [seq(elem=Generate(integer(range = -100..100)),elem=vars_in)];
+		for sys in PSystem_out do 
+			if {seq(evalb(subs(Val_in, j) = 0), j=sys[1])} subset {true} and {true} subset	{seq(evalb(subs(Val_in, j)<>0), j=sys[2])} then 
+				G_basis := subs(Val_in, [op(sys[3])]);
+				F_ready := subs(Val_in, F_in);
+				out_put := IsGrobner([op({op(F_ready)} minus {0})], [op({op(G_basis)} minus {0})], Vars_in);	
+			end if:	
+		end do:
+	end do:
+end proc:
+
+MakePair:=proc(L)
+local A, BB, i, m, W;
+
+	A := L;
+	BB := NULL;
+	for i in A do
+		m := A[1];
+		A := A[2 .. -1];
+		W := [seq([m, j], j in A)];
+		BB := BB, op(W);
+	od;
+	return([BB]);
+end proc:

@@ -1,0 +1,495 @@
+#################################################
+#    File: EfficientStandardBasisMixOrdering.mm #
+#    Main function : ImprovedMMT                #
+#    Input :                                    #
+#    K : list of polynomials                    #
+#    vars_in : list of variables                #
+#    vars : list of parameters                  #
+#    Description : Computes standard  bases     #
+#    relying on MMT+UPDATE-MINIMAL algorithm    #
+#    and a block ordering                       #
+#    (alex(vars), lex(params))                  #
+#    =========================================  #
+#    Authors Contact:                           #
+#    Amir Hashemi <amir.hashemi@cc.iut.ac.ir>   #
+#    Mahsa Kazemi <mahsa.kazemi@math.iut.ac.ir> #
+#################################################
+with(Groebner):
+with(PolynomialIdeals):
+with(RandomTools):
+#<-----------------------------------------------------------------------------
+SortLT:=proc(A,B,Vars,vars)
+	
+	if indets(A) subset {op(vars)}=true and indets(B) subset {op(vars)}=true then
+		if TestOrder(A,B,plex(op(vars)))=true then
+			return(false);
+		else
+			return(true);
+		end if:
+	elif indets(A) subset {op(vars)}=true and indets(B) subset {op(vars)}=false then
+		return(true);
+	elif indets(A) subset {op(vars)}=false and indets(B) subset {op(vars)}=true then
+		return(false);
+	elif indets(A) subset {op(vars)}=false and indets(B) subset {op(vars)}=false then
+		if degree(A,{op(Vars)})<=degree(B,{op(Vars)}) then
+			return(true);
+		elif degree(A,{op(Vars)})>degree(B,{op(Vars)}) then
+			return(false); 
+		end if:
+	end if:
+	
+end proc:
+#<-----------------------------------------------------------------------------
+SortLTEnd:=proc(A,B,Vars,vars)
+	#A :=simplify(A_in/LeadingCoefficient(A_in,plex(op(Vars),op(vars))));
+	#B :=simplify(B_in/LeadingCoefficient(B_in,plex(op(Vars),op(vars))));
+	if indets(A) subset {op(vars)}=false and indets(B) subset {op(vars)}=false then
+		if evalb(subs([seq(i=1,i=vars)],A)=subs([seq(j=1,j=vars)],B))=true then 
+			if TestOrder(A,B,plex(op(vars)))=true then
+				return(false);
+			else
+				return(true);
+			end if:
+		else
+			return(true);
+		end if:
+	elif indets(A) subset {op(vars)}=true and indets(B) subset {op(vars)}=true then
+		return(true);
+	end if:
+end proc:
+#<-----------------------------------------------------------------------------
+# Function: {LT}
+# Description: {returns leading term of a polynomial }
+# Calling sequence:
+# {LT(f, Vars, vars)}
+# Input:
+# { f : a polynomial }
+# { Vars : list of variables}
+# { vars : list of parameters}
+# Output:
+# { }
+#>-----------------------------------------------------------------------------
+LT:=proc(f,Vars::list, vars::list)
+local g, A, BC, d, flag, N, i, h,a,b:
+	#h := LeadingTerm(f, plex(op(Vars)))[1]*LeadingTerm(f, plex(op(Vars)))[2];
+	g := expand(f);
+	if type(g,`+`) then
+		if indets(g) subset {op(vars)}=false then
+			A := [op(g)];
+			#A := RemoveParams(seperate_out,vars);
+			#if nops(A)<>0 then
+			#A:=sort(A, (a,b)->degree(a,{op(Vars)})<degree(b,{op(Vars)}));
+			A:=sort(A,(a,b)->SortLT(a,b,Vars,vars));
+			d := degree(A[1],{op(Vars)});
+			flag := false;
+			N := NULL;
+			for i from 1 to nops(A) while flag=false do 
+				if degree(A[i],{op(Vars)})=d then
+					N := N, A[i];
+				else
+					flag := true;
+				fi:
+			od:
+			BC := [N];
+			BC := sort(BC, (a,b)->TestOrder(b, a, plex(op(Vars))));
+			BC := [seq([j,simplify(j/LeadingCoefficient(j,plex(op(Vars),op(vars))))],j=BC)];
+			BC := sort(BC, (a,b)->SortLTEnd(a[2],b[2],Vars,vars));
+			#h := LeadingTerm(BC[1], plex(op(vars)))[1]*LeadingTerm(BC[1], plex(op(vars)))[2];
+			RETURN(BC[1][1]);
+		else
+			h := LeadingTerm(g, plex(op(vars)))[1]*LeadingTerm(g, plex(op(vars)))[2];
+			return(h);	
+		end if:
+	else
+		RETURN(g);
+	fi;
+end proc:
+#<-----------------------------------------------------------------------------
+# Function: {LM}
+# Description: {returns leading monomial of a polynomial}
+# Calling sequence:
+# {LM(f, Vars, vars)}
+# Input:
+# { f : a polynomial }
+# { Vars : list of variables}
+# { vars : list of parameters}
+# Output:
+# { }
+#>-----------------------------------------------------------------------------
+LM:=proc(f,Vars::list,vars::list)
+	return(LeadingMonomial(LT(f, Vars, vars), plex(op(Vars), op(vars))));
+end proc:
+#<-----------------------------------------------------------------------------
+# Function: {Spoly}
+# Description: {computes spolynomial of two given polynomials}
+# Calling sequence:
+# {Spoly(f, g, Vars, vars)}
+# Input:
+# { f : a polynomial}
+# { g : a polynomial}
+# { Vars : list of variables}
+# { vars : list of parameters}
+# Output:
+# { }
+#>-----------------------------------------------------------------------------
+Spoly:=proc(f,g,Vars::list,vars::list)
+local a:
+
+	a := lcm(LM(f, Vars, vars), LM(g, Vars, vars));
+	return(simplify(a*f/LT(f, Vars, vars)-a*g/LT(g, Vars, vars)));
+end proc:
+#<-----------------------------------------------------------------------------
+# Function: {ecart}
+# Description: {computes ecart of a polynomial say f which is the difference between degree of f and degree of LT(f) }
+# Calling sequence:
+# {ecart(f, Vars, vars)}
+# Input:
+# { f : a polynomial}
+# { Vars : a list of variables}
+# { vars : a list of parameters}
+# Output:
+# { }
+#>-----------------------------------------------------------------------------
+ecart:=proc(f,Vars::list,vars::list)
+	return(degree(f,{op(Vars)})-degree(LT(f, Vars, vars),{op(Vars)}));
+end proc:
+#<-----------------------------------------------------------------------------
+# Function: {TEST}
+# Description: {}
+# Calling sequence:
+# {TEST(A, B, Vars, vars)}
+# Input:
+# { A }
+# { B }
+# { Vars }
+# { vars }
+# Output:
+# { }
+#>-----------------------------------------------------------------------------
+TEST:=proc(A,B,Vars,vars)
+
+	if indets(A) subset {op(vars)}=true and indets(B) subset {op(vars)}=true then
+		if TestOrder(A,B,plex(op(vars)))=true then
+			return(false);
+		elif TestOrder(A,B,plex(op(vars)))=false then
+			return(true);
+		end if:
+
+	elif indets(A) subset {op(vars)}=true and indets(B) subset {op(vars)}=false  then
+		return(true);
+	elif indets(A) subset {op(vars)}=false and indets(B) subset {op(vars)}=true  then
+		return(false);
+	elif indets(A) subset {op(vars)}=false and indets(B) subset {op(vars)}=false  then
+		if evalb(subs([seq(i=1,i=vars)],A)=subs([seq(j=1,j=vars)],B))=true then
+			if TestOrder(A,B,plex(op(vars)))=true then
+				return(false);
+			else
+				return(true);
+			end if:
+		else
+			return(true);
+		end if:
+		if degree(A, {op(Vars)})<degree(B,{op(Vars)}) then
+			return(true);
+		elif degree(A,{op(Vars)})>degree(B,{op(Vars)}) then
+			return (false);
+		elif degree(A,{op(Vars)})=degree(B,{op(Vars)}) and TestOrder(A,B,plex(op(Vars)))=true then
+			return (false);
+		elif degree(A,{op(Vars)})=degree(B,{op(Vars)}) and TestOrder(A,B,plex(op(Vars)))=false then
+			return (true);
+		fi;
+	end if:
+end proc:
+#<-----------------------------------------------------------------------------
+# Function: {NEWTEST}
+# Description: {}
+# Calling sequence:
+# {NEWTEST(Z, W, Vars, vars)}
+# Input:
+# { Z }
+# { W }
+# { Vars }
+# { vars }
+# Output:
+# { }
+#>-----------------------------------------------------------------------------
+NEWTEST:=proc(Z,W,Vars,vars)
+	if ecart(Z,Vars,vars)<ecart(W,Vars,vars) then
+		return(true);
+	elif ecart(Z,Vars,vars)>ecart(W,Vars,vars) then
+	#else
+		return(false);
+	elif ecart(Z,Vars,vars)=ecart(W,Vars,vars) and TEST(LM(Z,Vars,vars),LM(W,Vars,vars),Vars,vars)=true then
+		return(true);
+	elif ecart(Z,Vars,vars)=ecart(W,Vars,vars) and TEST(LM(Z,Vars,vars),LM(W,Vars,vars),Vars,vars)=false then
+		return(false);
+	fi;
+end proc:
+#<-----------------------------------------------------------------------------
+# Function: {MoraNF}
+# Description: {}
+# Calling sequence:
+# {NEWTEST(Z, W, Vars, vars)}
+# Input:
+# { Z }
+# { W }
+# { Vars }
+# { vars }
+# Output:
+# { }
+#>-----------------------------------------------------------------------------
+MoraNF:=proc(f,F,Vars, vars)
+#option trace;
+local h, L, M, t, AA, g, W,l,v,flag;
+global Y;
+       h := f[1];
+       L := F;
+       l:=x->divide(LT(h, Vars, vars), LT(x[1], Vars, vars));
+       M := select(l, L);
+       #v:=Q->Q[2]<>f[2];
+       #M:=select(v,M);
+       flag := false;
+       while h<>0 and nops(M)<>0 do
+       	     AA:=sort(M,(a,b)->NEWTEST(a[1],b[1],Vars, vars));
+	     g := AA[1][1];
+             if flag=false and AA[1][2]=f[2] then
+	     	AA := AA[2..-1];
+		g := AA[1][1];
+             end if:
+	   if flag=true then
+  	     	if ecart(g,Vars, vars)>ecart(h,Vars, vars) then
+    		   	L := [op(L),[h,f[2]]];
+ 		 fi;
+       		 h := simplify(h-LT(h, Vars, vars)*g/LT(g, Vars, vars));
+           	 if h<>0 then
+              	    l:=x->divide(LT(h, Vars, vars), LT(x[1], Vars, vars));
+              	    M := select(l, L);
+           	 fi;
+	   elif flag=false and AA[1][2]<>f[2] then
+	   	if AA[1][2]>f[2] then 
+          	   		 Y := LT(h,Vars, vars)*e[AA[1][2]]/LT(g, Vars, vars);
+        	fi;
+  		if ecart(g,Vars, vars)>ecart(h,Vars, vars) then
+    		   L := [op(L),[h,f[2]]];
+  		fi;
+       		h := simplify(h-LT(h, Vars, vars)*g/LT(g, Vars, vars));
+           	if h<>0 then
+              	   l:=x->divide(LT(h, Vars, vars), LT(x[1], Vars, vars));
+              	   M := select(l, L);
+           	 fi;
+		 flag:=true;
+	   fi;
+     od;
+     RETURN(h);
+end:
+#<-----------------------------------------------------------------------------
+# Function: {ImprovedMMT}
+# Description: {}
+# Calling sequence:
+# {}
+# Input:
+# {  }
+# {  }
+# {  }
+# { }
+# Output:
+# { }
+#>-----------------------------------------------------------------------------
+ImprovedMMT:=proc(K, vars_in, vars)
+#option trace;
+local Vars, F, P, f, A, a, flag, FLAG, g, R, firsttime, firstbytes, fcriterion, scriterion, reduction, critical, secondtime, secondbytes, DRZ,combinations,U, d_out;
+global alarm, S, Y, B, Cnew, Bnew;#saf,mahsa;
+firsttime, firstbytes := kernelopts(cputime, bytesused);
+#saf := 0;
+d_out := 0;
+Vars := vars_in;
+F := K;
+B := {};
+P := {};
+S := {};
+#S:=NULL;
+alarm := false;
+fcriterion := 0;
+scriterion := 0;
+reduction := 0;
+critical := 0;
+#mahsa := NULL;
+#combinations := NULL;
+DRZ := 0;
+#while F<>{} do 
+while nops(F)<>0 do
+    #for f in F do
+         #F := F minus {f};
+         f:=F[1];
+         F:=F[2..-1];
+         A := UPDATE(B, P, S, f, Vars, vars);
+         B := A[1];
+         P := A[2];
+         S := A[3];
+         fcriterion := fcriterion+A[4];
+         scriterion := scriterion+A[5];
+         critical := critical+A[6];
+          #mahsa := mahsa, op(A[7]);
+      #od;
+od;
+alarm := true;
+   while nops(P)<>0 do 
+       P:=sort(P,(z,w)->TEST(z[3],w[3],Vars, vars));
+       a := P[1];
+       P := P[2 .. -1];
+       #if Check(S,a[4],Vars)=false then 
+       	  d_out := max(d_out,degree(a[1]));
+           f:=[a[1],op([op(a[4])][-1])];
+           Y := a[4];
+           U := MoraNF(f, B, Vars, vars);
+         if U<>0 then 
+              R := UPDATE(B, P, S, U, Vars, vars);
+              B := R[1];
+              P := R[2];
+              S := R[3];
+             fcriterion := fcriterion+R[4];
+             scriterion := scriterion+R[5];
+             critical := critical+R[6];
+            # mahsa := mahsa, op(R[7]);
+             #combinations := combinations, R[8];
+         else
+             reduction := reduction+1;
+         fi;
+            # S:=[op({op([op(S),collect(Y,indets(Y) minus Vars)])} minus {0})];
+           if {Y}subset{seq(e[i],i=1..nops(K))} then 
+              S := [op(S)];
+             else
+              S := [op(S), Y];
+             fi;
+            #S:=[op(S),Y];
+       #else
+           #DRZ := DRZ+1;
+       #fi;
+    od;
+    return([seq(B[i][1], i = 1 .. nops(B))]);
+    #return([seq(B[i][1], i = 1 .. nops(B)), seq(q[1], q = [mahsa])]);
+    secondtime, secondbytes := kernelopts(cputime, bytesused);
+    printf("\n", ""):
+    printf("\n", ""):
+    printf("%1s %1s %1s %1s %1s:\n", Some, information, about, the, computation);
+    printf("\n", "");
+    printf("%-1s %1s %1s %1s:  %3a %3a\n", The, cpu, time, is, secondtime-firsttime, sec):
+    printf("%-1s %1s %1s:  %3a %3a\n", The, used, memory, secondbytes-firstbytes, bytes):
+    #printf("%-1s  %1s  %1s  : %3a  \n", Groebner, Basis, is, [seq(B[i][1], i = 1 .. nops(B)), seq(q[1], q = [mahsa])]):
+    #printf("%-1s  %1s  %1s  : %3a  \n", Groebner, Basis, is, [seq(B[i][1], i = 1 .. nops(B))]):
+    printf("%-1s  %1s  %1s  : %3a  \n", The, first, detected, fcriterion):
+    printf("%-1s  %1s  %1s  : %3a  \n", The, second, detected, scriterion):
+    printf("%-1s  %1s  %1s  %1s %1s: %3a  \n", The, number, of, zero, reductions, reduction):
+    printf("%-1s  %1s  %1s  %1s %1s: %3a  \n", The, number, of, Critical, Pairs, critical):
+    printf("%-1s  %1s  %1s  : %3a  \n", Removed, Reduction, Zero, DRZ):
+    printf("%-1s  %1s  %1s  : %3a  \n", The, maximum, needed, d_out):
+    #printf("%-1s  %1s  %1s  : %3a  \n", Combinations, Groebner, Basis, [combinations]):
+    #printf("%-1s  %1s  %1s  : %3a  \n", The, syzygies, are, S):
+end:
+#<-----------------------------------------------------------------------------
+# Function: {UPDATE}
+# Description: {}
+# Calling sequence:
+# {}
+# Input:
+# {  }
+# {  }
+# {  }
+# { }
+# Output:
+# { }
+#>-----------------------------------------------------------------------------
+UPDATE:=proc(H,YY,Q,d,Vars, vars)
+#option trace;
+local h, P, C, v, DD, j, DDD, E, t, Pnew, k, second, first, Num, Bold, i, c;
+global alarm, S, Bnew, Cnew;#Y,saf;
+#saf := saf+1;
+Bold := H;
+P := YY;
+S := Q;
+h := d;
+second := 0;
+C := NULL;
+if nops(H)<>0 then 
+  for i in Bold do
+      C := C, [lcm(LM(h, Vars ,vars), LM(i[1], Vars, vars))*h/LM(h, Vars, vars), gcd(LM(h, Vars, vars), LM(i[1], Vars, vars)), lcm(LM(h, Vars, vars), LM(i[1], Vars, vars)), lcm(LM(h, Vars, vars), LM(i[1], Vars, vars))*e[H[-1][2]+1]/LM(h, Vars, vars), [h, i[1]]];
+   od;
+       C := [C];
+else
+       C := [C];
+fi;
+Num := nops(C);
+DD := {};
+   while nops(C)<>0 do
+      j := C[1];
+      C :=[op({op(C)} minus {j})];
+      if j[2]=1 or  op({check(C,j[3],Vars, vars), check(DD,j[3],Vars, vars)})=false then
+         DD := {op(DD),j};
+      else
+         second := second+1;
+      fi;
+   od;
+DDD := [op(DD)];
+E := NULL;
+first := 0;
+   while nops(DDD)<>0 do 
+         t := DDD[1];
+         DDD:=[op({op(DDD)} minus {t})];
+      if t[2]<>1 then 
+          E := E, t;
+      else
+          first := first+1;
+       fi;
+   od;
+Pnew := [E];
+      while nops(P)<>0 do
+          k := P[1];
+          P:={op(P)} minus {P[1]};
+           if not divide(k[3],LM(h,Vars, vars))
+                         or
+            lcm(LM(k[5][1], Vars, vars), LM(h, Vars, vars)) = k[3]
+                         or
+             lcm(LM(h,Vars, vars),LM(k[5][2], Vars, vars))=k[3] then
+             Pnew := [op({op(Pnew),k})];
+           else
+             second := second+1;
+           fi;
+      od;
+#Cnew := NULL;
+Bnew:=op({op(Bold)} minus {{}});
+#Bnew := NULL;
+    #while nops(Bold)<>0 do
+         #c := Bold[1];
+        # Bold := Bold[2 .. -1];
+      # if divide(LM(c[1],Vars),LM(h,Vars))=false then
+      #   Bnew := Bnew, c;
+      # else 
+        # Cnew := Cnew, c;
+        # Pnew := [op({op(Pnew), [c[1], gcd(LM(c[1], Vars), LM(h, Vars)), lcm(LM(c[1], Vars), LM(h, Vars)), e[c[2]], [h, c[1]]]})];
+      # fi;
+    # od;
+        if nops(H)=0 then
+            Bnew := [Bnew, [h, nops(H)+1]];
+        else
+            Bnew := [Bnew, [h, H[-1][2]+1]];
+        fi;
+            #if alarm=true then
+               #if nops(H)<>0 then
+                  #S:=[op(S),principal([h, H[-1][2]+1])];
+               #fi;
+            #elif alarm=false then
+                     #S := [op(S)];
+            #fi;
+return([Bnew, Pnew, S, first, second, Num, [Cnew]]);
+end:
+
+check:=proc(G,k,Vars, vars) 
+#option trace;
+local t;
+ for t in G do
+      if divide(k,t[3])=true then 
+        return(true);
+      fi;
+ od;
+return(false);
+end:

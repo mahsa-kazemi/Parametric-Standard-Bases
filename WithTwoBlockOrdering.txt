@@ -1,0 +1,524 @@
+#################################################
+#    File:WithTwoBlockOrdering.mm               #
+#    last update : March 28, 2018               #                           
+#    Main Function :  ImprovedMMT               #
+#    Input : K, VarGlobal, ParLocal, ParGlobal  #
+#    K : a list of polynomials                  #
+#    VarGlobal : a list of global variables     #
+#    ParLocal  : a list of local parameters     #
+#    ParGlobal : a list of global parameters    #
+#    Description : Computes standard basis      #
+#    needed in KapurLocalAlgOverThreeRings.mm   #
+#    =========================================  #
+#    Authors Contact:                           #
+#    Amir Hashemi <amir.hashemi@cc.iut.ac.ir>   #
+#    Mahsa Kazemi <mahsa.kazemi@math.iut.ac.ir> #
+#################################################
+with(Groebner):
+#<-----------------------------------------------------------------------------
+# Function: {ComplexOrdering}
+# Description: {}
+# Calling sequence:
+# {ComplexOrdering(A, B, VarGlobal, ParLocal, ParGlobal)}
+# Input:
+# { A }
+# { B }
+# { VarGlobal }
+# { ParLocal }
+# { ParGlobal }
+# Output:
+# { }
+#>-----------------------------------------------------------------------------
+ComplexOrdering := proc(A, B, VarGlobal::list, ParLocal::list, ParGlobal::list)
+
+	if indets(A) subset {op(VarGlobal)}=true and indets(B) subset {op(VarGlobal)}=true then
+		if TestOrder(A,B,plex(op(VarGlobal)))=true then
+			return(false);
+		else
+			return(true);
+		end if:
+	elif indets(A) subset {op(ParLocal)}=true and indets(B) subset {op(ParLocal)}=true then
+		if degree(A,{op(ParLocal)})<degree(B,{op(ParLocal)}) then
+			return(true);
+		elif degree(A,{op(ParLocal)})>degree(B,{op(ParLocal)}) then
+			return(false); 
+		elif degree(A,{op(ParLocal)})=degree(B,{op(ParLocal)}) then
+			if TestOrder(A,B,plex(op(ParLocal)))=true then
+				return(false);
+			else
+				return(true);
+			end if:
+		end if:
+	elif indets(A) subset {op(ParGlobal)}=true and indets(B) subset {op(ParGlobal)}=true then
+		if TestOrder(A,B,plex(op(ParGlobal)))=true then
+			return(false);
+		else
+			return(true);
+		end if:	
+	elif indets(A) subset {op(ParLocal)}=true and indets(B) subset {op(VarGlobal)}=true then
+		return(false);
+	elif indets(A) subset {op(VarGlobal)}=true and indets(B) subset {op(ParLocal)}=true then
+		return(true);
+	elif indets(A) subset {op(ParGlobal)}=true and indets(B) subset {op(VarGlobal)}=true then
+		return(false);
+	elif indets(A) subset {op(VarGlobal)}=true and indets(B) subset {op(ParGlobal)}=true then
+		return(true);
+	elif indets(A) subset {op(ParGlobal)}=true and indets(B) subset {op(ParLocal)}=true then
+		return(false);
+	elif indets(A) subset {op(ParLocal)}=true and indets(B) subset {op(ParGlobal)}=true then
+		return(true);
+	end if:
+	if evalb(subs([seq(i=1,i=ParGlobal), seq(k=1,k=ParLocal)],A)=subs([seq(j=1,j=ParGlobal), seq(l=1,l=ParLocal)],B))=true then 
+		if evalb(subs([seq(i=1,i=ParGlobal)],A)=subs([seq(j=1,j=ParGlobal)],B))=true then
+			if TestOrder(A, B, plex(op(ParGlobal)))=true then
+				return(false);
+			else
+				return(true);
+			end if:
+		else
+			if degree(A,{op(ParLocal)})<degree(B,{op(ParLocal)}) then
+				return(true);
+			elif degree(A,{op(ParLocal)})>degree(B,{op(ParLocal)}) then
+				return(false); 
+			elif degree(A,{op(ParLocal)})=degree(B,{op(ParLocal)}) then
+				if TestOrder(A,B,plex(op(ParLocal)))=true then
+					return(false);
+				else
+					return(true);
+				end if:
+			end if:			
+		end if:
+		
+	else 
+		if TestOrder(A, B, plex(op(VarGlobal)))=true then
+			return(false);
+		else
+			return(true);
+		end if:	
+
+
+
+	end if:
+	if evalb(subs([seq(i=1,i=ParGlobal), seq(k=1,k=VarGlobal)],A)=subs([seq(j=1,j=ParGlobal), seq(l=1,l=VarGlobal)],B))=true then
+		if evalb(subs([seq(i=1,i=ParGlobal)],A)=subs([seq(j=1,j=ParGlobal)],B))=true then
+			if degree(A,{op(ParGlobal)})<degree(B,{op(ParGlobal)}) then
+				return(true);
+			elif degree(A,{op(ParGlobal)})>degree(B,{op(ParGlobal)}) then
+				return(false); 
+			elif degree(A,{op(ParGlobal)})=degree(B,{op(ParGlobal)}) then
+				if TestOrder(A,B,plex(op(ParGlobal)))=true then
+					return(false);
+				else
+					return(true);
+				end if:
+			end if:		
+		else
+			if degree(A,{op(VarGlobal)})<degree(B,{op(VarGlobal)}) then
+				return(true);
+			elif degree(A,{op(VarGlobal)})>degree(B,{op(VarGlobal)}) then
+				return(false); 
+			elif degree(A,{op(VarGlobal)})=degree(B,{op(VarGlobal)}) then
+				if TestOrder(A,B,plex(op(VarGlobal)))=true then
+					return(false);
+				else
+					return(true);
+				end if:
+			end if:		
+		end if:	
+	else
+		if degree(A,{op(ParLocal)})<degree(B,{op(ParLocal)}) then
+				return(true);
+		elif degree(A,{op(ParLocal)})>degree(B,{op(ParLocal)}) then
+				return(false); 
+		elif degree(A,{op(ParLocal)})=degree(B,{op(ParLocal)}) then
+				if TestOrder(A,B,plex(op(ParLocal)))=true then
+					return(false);
+				else
+					return(true);
+				end if:
+		end if:		
+	end if:
+	if evalb(subs([seq(i=1,i=ParLocal), seq(k=1,k=VarGlobal)],A)=subs([seq(j=1,j=ParLocal), seq(l=1,l=VarGlobal)],B))=true then
+		if evalb(subs([seq(i=1,i=ParLocal)],A)=subs([seq(j=1,j=ParLocal)],B))=true then
+			if degree(A,{op(ParLocal)})<degree(B,{op(ParLocal)}) then
+				return(true);
+			elif degree(A,{op(ParLocal)})>degree(B,{op(ParLocal)}) then
+				return(false); 
+			elif degree(A,{op(ParLocal)})=degree(B,{op(ParLocal)}) then
+				if TestOrder(A,B,plex(op(ParLocal)))=true then
+					return(false);
+				else
+					return(true);
+				end if:
+			end if:		
+		else
+			if TestOrder(A, B, plex(VarGlobal))=true then
+				return(false);
+			else
+				return(true);
+			end if:
+
+		end if:
+		
+	else
+		if degree(A,{op(ParGlobal)})<degree(B,{op(ParGlobal)}) then
+				return(true);
+		elif degree(A,{op(ParGlobal)})>degree(B,{op(ParGlobal)}) then
+				return(false); 
+		elif degree(A,{op(ParGlobal)})=degree(B,{op(ParGlobal)}) then
+				if TestOrder(A,B,plex(op(ParGlobal)))=true then
+					return(false);
+				else
+					return(true);
+				end if:
+		end if:	
+		
+	end if:	
+
+end proc:
+#<-----------------------------------------------------------------------------
+# Function: {ComplexLT}
+# Description: {}
+# Calling sequence:
+# {ComplexLT(f, VarGlobal, ParLocal, ParGlobal)}
+# Input:
+# { A }
+# { B }
+# { VarGlobal }
+# { ParLocal }
+# { ParGlobal }
+# Output:
+# { }
+#>-----------------------------------------------------------------------------
+ComplexLT:=proc(f, VarGlobal, ParLocal, ParGlobal)
+local g, A, a, b:
+
+	g := expand(f);
+	if type(g,`+`) then
+			A := [op(g)];
+			A:=sort(A,(a,b)->ComplexOrdering(a/(LeadingCoefficient(a,plex(op( VarGlobal),op(ParLocal),op(ParGlobal)))),b/(LeadingCoefficient(b,plex(op( VarGlobal),op(ParLocal),op(ParGlobal)))), VarGlobal, ParLocal, ParGlobal));return(A[1]);
+	else
+			RETURN(g);
+	fi;
+end proc:
+#<-----------------------------------------------------------------------------
+# Function: {ComplexLM}
+# Description: {returns leading monomial of a polynomial}
+# Calling sequence:
+# {ComplexLM(f, VarGlobal, ParLocal, ParGlobal)}
+# Input:
+# { f : a polynomial }
+# { }
+# { }
+# Output:
+# { }
+#>-----------------------------------------------------------------------------
+ComplexLM:=proc(f, VarGlobal::list, ParLocal::list, ParGlobal::list)
+	return(LeadingMonomial(ComplexLT(f, VarGlobal, ParLocal, ParGlobal), plex(op(VarGlobal), op(ParLocal), op(ParGlobal))));
+end proc:
+#<-----------------------------------------------------------------------------
+# Function: {Spoly}
+# Description: {computes spolynomial of two given polynomials}
+# Calling sequence:
+# {Spoly(f, g, VarGlobal, ParLocal, ParGlobal)}
+# Input:
+# { f : a polynomial}
+# { g : a polynomial}
+# { VarGlobal : }
+# { ParLocal : }
+# { ParGlobal :}
+# Output:
+# { }
+#>-----------------------------------------------------------------------------
+ComplexSpoly:=proc(f, g, VarGlobal::list, ParLocal::list, ParGlobal::list)
+local a:
+
+	a := lcm(ComplexLM(f, VarGlobal, ParLocal, ParGlobal), ComplexLM(g, VarGlobal, ParLocal, ParGlobal));
+	return(simplify(a*f/ComplexLT(f, VarGlobal, ParLocal, ParGlobal)-a*g/ComplexLT(g, VarGlobal, ParLocal, ParGlobal)));
+end proc:
+#<-----------------------------------------------------------------------------
+# Function: {Complexecart}
+# Description: {computes ecart of a polynomial say f which is the difference between degree of f and degree of LT(f) }
+# Calling sequence:
+# {Complexecart(f)}
+# Input:
+# { f : a polynomial}
+# { }
+# { }
+# Output:
+# { }
+#>-----------------------------------------------------------------------------
+Complexecart:=proc(f, VarGlobal::list, ParLocal::list, ParGlobal::list)
+	return(degree(f,{op(VarGlobal),op(ParLocal)})-degree(ComplexLT(f, VarGlobal, ParLocal, ParGlobal),{op(VarGlobal),op(ParLocal)}));
+end proc:
+#<-----------------------------------------------------------------------------
+# Function: {TEST}
+# Description: {}
+# Calling sequence:
+# {TEST(A, B, Vars, params)}
+# Input:
+# { A }
+# { B }
+# { Vars }
+# { vars }
+# Output:
+# { }
+#>-----------------------------------------------------------------------------
+TEST:=proc(A,B, VarGlobal::list, ParLocal::list, ParGlobal::list)
+
+  return(ComplexOrdering(A, B, VarGlobal, ParLocal, ParGlobal));
+	
+end proc:
+#<-----------------------------------------------------------------------------
+# Function: {NEWTEST}
+# Description: {}
+# Calling sequence:
+# {NEWTEST(Z, W, VarGlobal, ParLocal, ParGlobal)}
+# Input:
+# { Z }
+# { W }
+# { VarGlobal }
+# { ParLocal }
+# { ParGlobal } 
+# Output:
+# { }
+#>-----------------------------------------------------------------------------
+NEWTEST:=proc(Z,W, VarGlobal::list, ParLocal::list, ParGlobal::list)
+	if ecart(Z,VarGlobal, ParLocal, ParGlobal)<ecart(W, VarGlobal, ParLocal, ParGlobal) then
+		return(true);
+	elif ecart(Z,VarGlobal, ParLocal, ParGlobal)>ecart(W, VarGlobal, ParLocal, ParGlobal) then
+		return(false);
+	elif ecart(Z,VarGlobal, ParLocal, ParGlobal)=ecart(W,VarGlobal, ParLocal, ParGlobal) and TEST(ComplexLM(Z,VarGlobal, ParLocal, ParGlobal),ComplexLM(W, VarGlobal, ParLocal, ParGlobal),VarGlobal, ParLocal, ParGlobal)=true then
+		return(true);
+	elif ecart(Z, VarGlobal, ParLocal, ParGlobal)=ecart(W, VarGlobal, ParLocal, ParGlobal) and TEST(ComplexLM(Z, VarGlobal, ParLocal, ParGlobal),ComplexLM(W,VarGlobal, ParLocal, ParGlobal),VarGlobal, ParLocal, ParGlobal)=false then
+		return(false);
+	fi;
+end proc:
+#<-----------------------------------------------------------------------------
+# Function: {MoraNF}
+# Description: {}
+# Calling sequence:
+# {NEWTEST(Z, W, Vars, vars)}
+# Input:
+# { Z }
+# { W }
+# { Vars }
+# { vars }
+# Output:
+# { }
+#>-----------------------------------------------------------------------------
+MoraNF:=proc(f,F,VarGlobal::list, ParLocal::list, ParGlobal::list)
+#option trace;
+local h, L, M, t, AA, g, W,l,v,flag;
+global Y;
+	h := f[1];
+	L := F;
+	l := x->divide(ComplexLT(h, VarGlobal, ParLocal, ParGlobal), ComplexLT(x[1], VarGlobal, ParLocal, ParGlobal));
+	M := select(l, L);
+	flag := false;
+	while h<>0 and nops(M)<>0 do 
+		AA := sort(M,(a,b)->NEWTEST(a[1],b[1], VarGlobal, ParLocal, ParGlobal));
+		g := AA[1][1];
+		if flag=false and AA[1][2]=f[2] then
+			AA := AA[2..-1];
+			g := AA[1][1];
+		end if:
+		if flag=true then
+			if ecart(g, VarGlobal, ParLocal, ParGlobal)>ecart(h, VarGlobal, ParLocal, ParGlobal) then
+				L := [op(L),[h,f[2]]];
+			fi;
+			h := simplify(h-ComplexLT(h, VarGlobal, ParLocal, ParGlobal)*g/ComplexLT(g, VarGlobal, ParLocal, ParGlobal));
+			if h<>0 then
+				l := x->divide(ComplexLT(h, VarGlobal, ParLocal, ParGlobal), ComplexLT(x[1], VarGlobal, ParLocal, ParGlobal));
+				M := select(l, L);
+			fi;
+		elif flag=false and AA[1][2]<>f[2] then
+			if AA[1][2]>f[2] then 
+				Y := ComplexLT(h, VarGlobal, ParLocal, ParGlobal)*e[AA[1][2]]/ComplexLT(g, VarGlobal, ParLocal, ParGlobal);
+			fi;
+			if ecart(g,VarGlobal, ParLocal, ParGlobal)>ecart(h,VarGlobal, ParLocal, ParGlobal) then
+				L := [op(L),[h,f[2]]];
+			fi;
+			h := simplify(h-ComplexLT(h, VarGlobal, ParLocal, ParGlobal)*g/ComplexLT(g, VarGlobal, ParLocal, ParGlobal));
+			if h<>0 then
+				l := x->divide(ComplexLT(h, VarGlobal, ParLocal, ParGlobal), ComplexLT(x[1], VarGlobal, ParLocal, ParGlobal));
+				M := select(l, L);
+			fi;
+			flag:=true;
+		fi;
+	od;
+	RETURN(h);
+end:
+#<-----------------------------------------------------------------------------
+# Function: {ImprovedMMT}
+# Description: {}
+# Calling sequence:
+# {}
+# Input:
+# {  }
+# {  }
+# {  }
+# { }
+# Output:
+# { }
+#>-----------------------------------------------------------------------------
+ImprovedMMT:=proc(K, VarGlobal, ParLocal, ParGlobal)
+#option trace;
+local Vars, F, P, f, A, a, flag, FLAG, g, R, firsttime, firstbytes, fcriterion, scriterion, reduction, critical, secondtime, secondbytes, DRZ,combinations,U, d_out;
+global alarm, S, Y, B, Cnew, Bnew;
+
+	firsttime, firstbytes := kernelopts(cputime, bytesused);
+	d_out := 0;
+	F := K;
+	B := {};
+	P := {};
+	S := {};
+	alarm := false;
+	fcriterion := 0;
+	scriterion := 0;
+	reduction := 0;
+	critical := 0;
+	DRZ := 0;
+	while nops(F)<>0 do
+		f:=F[1];
+		F:=F[2..-1];
+		A := UPDATE(B, P, S, f, VarGlobal, ParLocal, ParGlobal);
+		B := A[1];
+		P := A[2];
+		S := A[3];
+		fcriterion := fcriterion+A[4];
+		scriterion := scriterion+A[5];
+		critical := critical+A[6];
+	od;
+	alarm := true;
+	while nops(P)<>0 do 
+		P:=sort(P,(z,w)->TEST(z[3],w[3], VarGlobal, ParLocal, ParGlobal));
+		a := P[1];
+		P := P[2 .. -1];
+		d_out := max(d_out,degree(a[1]));
+		f := [a[1],op([op(a[4])][-1])];
+		Y := a[4];
+		U := MoraNF(f, B, VarGlobal, ParLocal, ParGlobal);
+		if U<>0 then 
+			R := UPDATE(B, P, S, U, VarGlobal, ParLocal, ParGlobal);
+			B := R[1];
+			P := R[2];
+			S := R[3];
+			fcriterion := fcriterion+R[4];
+			scriterion := scriterion+R[5];
+			critical := critical+R[6];
+		else
+			reduction := reduction+1;
+		fi;
+		if {Y}subset{seq(e[i],i=1..nops(K))} then 
+			S := [op(S)];
+		else
+			S := [op(S), Y];
+		fi;
+	od;
+	return([seq(B[i][1], i = 1 .. nops(B))]);
+	secondtime, secondbytes := kernelopts(cputime, bytesused);
+	printf("\n", ""):
+	printf("\n", ""):
+	printf("%1s %1s %1s %1s %1s:\n", Some, information, about, the, computation);
+	printf("\n", "");
+	printf("%-1s %1s %1s %1s:  %3a %3a\n", The, cpu, time, is, secondtime-firsttime, sec):
+	printf("%-1s %1s %1s:  %3a %3a\n", The, used, memory, secondbytes-firstbytes, bytes):
+	#printf("%-1s  %1s  %1s  : %3a  \n", Groebner, Basis, is, [seq(B[i][1], i = 1 .. nops(B)), seq(q[1], q = [mahsa])]):
+	#printf("%-1s  %1s  %1s  : %3a  \n", Groebner, Basis, is, [seq(B[i][1], i = 1 .. nops(B))]):
+	printf("%-1s  %1s  %1s  : %3a  \n", The, first, detected, fcriterion):
+	printf("%-1s  %1s  %1s  : %3a  \n", The, second, detected, scriterion):
+	printf("%-1s  %1s  %1s  %1s %1s: %3a  \n", The, number, of, zero, reductions, reduction):
+	printf("%-1s  %1s  %1s  %1s %1s: %3a  \n", The, number, of, Critical, Pairs, critical):
+	printf("%-1s  %1s  %1s  : %3a  \n", Removed, Reduction, Zero, DRZ):
+	printf("%-1s  %1s  %1s  : %3a  \n", The, maximum, needed, d_out):
+	#printf("%-1s  %1s  %1s  : %3a  \n", Combinations, Groebner, Basis, [combinations]):
+	#printf("%-1s  %1s  %1s  : %3a  \n", The, syzygies, are, S):
+end:
+#<-----------------------------------------------------------------------------
+# Function: {UPDATE}
+# Description: {}
+# Calling sequence:
+# {}
+# Input:
+# {  }
+# {  }
+# {  }
+# { }
+# Output:
+# { }
+#>-----------------------------------------------------------------------------
+UPDATE:=proc(H,YY,Q,d,VarGlobal, ParLocal, ParGlobal)
+#option trace;
+local h, P, C, v, DD, j, DDD, E, t, Pnew, k, second, first, Num, Bold, i, c;
+global alarm, S, Bnew, Cnew;
+
+	Bold := H;
+	P := YY;
+	S := Q;
+	h := d;
+	second := 0;
+	C := NULL;
+	if nops(H)<>0 then 
+		for i in Bold do
+			C := C, [lcm(ComplexLM(h, VarGlobal, ParLocal, ParGlobal), ComplexLM(i[1], VarGlobal, ParLocal, ParGlobal))*h/ComplexLM(h,VarGlobal, ParLocal, ParGlobal), gcd(ComplexLM(h, VarGlobal, ParLocal, ParGlobal), ComplexLM(i[1], VarGlobal, ParLocal, ParGlobal)), lcm(ComplexLM(h,VarGlobal, ParLocal, ParGlobal ), ComplexLM(i[1], VarGlobal, ParLocal, ParGlobal)), lcm(ComplexLM(h, VarGlobal, ParLocal, ParGlobal), ComplexLM(i[1],VarGlobal, ParLocal, ParGlobal))*e[H[-1][2]+1]/ComplexLM(h, VarGlobal, ParLocal, ParGlobal), [h, i[1]]];
+		od;
+		C := [C];
+	else
+		C := [C];
+	fi;
+	Num := nops(C);
+	DD := {};
+	while nops(C)<>0 do
+		j := C[1];
+		C :=[op({op(C)} minus {j})];
+		if j[2]=1 or  op({check(C,j[3],VarGlobal, ParLocal, ParGlobal), check(DD,j[3],VarGlobal, ParLocal, ParGlobal)})=false then
+			DD := {op(DD),j};
+		else
+			second := second+1;
+		fi;
+	od;
+	DDD := [op(DD)];
+	E := NULL;
+	first := 0;
+	while nops(DDD)<>0 do 
+		t := DDD[1];
+		DDD:=[op({op(DDD)} minus {t})];
+		if t[2]<>1 then 
+			E := E, t;
+		else
+			first := first+1;
+		fi;
+	od;
+	Pnew := [E];
+	while nops(P)<>0 do
+		k := P[1];
+		P:={op(P)} minus {P[1]};
+		if not divide(k[3],ComplexLM(h,VarGlobal, ParLocal, ParGlobal))
+			         or
+			lcm(ComplexLM(k[5][1],VarGlobal, ParLocal, ParGlobal), ComplexLM(h, VarGlobal, ParLocal, ParGlobal)) = k[3]
+				 or
+			lcm(ComplexLM(h,VarGlobal, ParLocal, ParGlobal),ComplexLM(k[5][2], VarGlobal, ParLocal, ParGlobal))=k[3] then
+			Pnew := [op({op(Pnew),k})];
+		else
+			second := second+1;
+		fi;
+	od;
+	Bnew:=op({op(Bold)} minus {{}});
+		if nops(H)=0 then
+			Bnew := [Bnew, [h, nops(H)+1]];
+		else
+			Bnew := [Bnew, [h, H[-1][2]+1]];
+		fi;
+		return([Bnew, Pnew, S, first, second, Num, [Cnew]]);
+end:
+#>-----------------------------------------------------------------------------
+check:=proc(G,k,VarGlobal, ParLocal, ParGlobal) 
+local t;
+	for t in G do
+		if divide(k,t[3])=true then 
+			return(true);
+		 fi;
+	od;
+	return(false);
+end:

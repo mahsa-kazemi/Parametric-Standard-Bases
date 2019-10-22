@@ -1,0 +1,127 @@
+F := table():
+Vars := table():
+params := table():
+iter := 1;
+
+###exm1###
+#F[iter] := [x^5+y+a*x+b*x^2+c*x^3, 5*x^4+a+2*b*x+3*c*x^2, 20*x^3+2*b+6*c*x]:
+F[iter] := [x^5+y*x+a+b*x^2, 5*x^4+y+2*c*b*x, c*y^2]:
+Vars[iter] := [x,y]:
+params[iter] := [a,b,c]:
+iter := iter+1:
+
+###exm2###
+F[iter] := [a*y*x^3+b^2*x,y^3-a^2*x]:
+Vars[iter] := [x,y]:
+params[iter] := [a,b]:
+iter := iter+1:
+
+###exm3###
+F[iter] := [b^2*z*x-a*z^2,-c^2*y-c*x^2+b*z+y^2]:
+Vars[iter] := [x,y,z]:
+params[iter] := [a,b,c]:
+iter := iter+1:
+
+###exm4###
+F[iter] := [a*b*x^2-c*z^2, b*y-a^2*x^2, z*x+a^2*y]:
+Vars[iter] := [x,y,z]:
+params[iter] := [a,b,c]:
+iter := iter+1:
+
+###exm5###
+F[iter] := [-10*c*y^3-b*x, x*y+a*z, b*z^3-y^2+x*z^4]:
+Vars[iter] := [x,y,z]:
+params[iter] := [a,b,c]:
+iter := iter+1:
+
+###exm6###
+F[iter] := [c*x^2+d^2*y,-a*w+b^2,-d*z-x]:
+Vars[iter] := [x,y,z,w]:
+params[iter] := [a,b,c,d]:
+iter := iter+1:
+
+###exm7###
+F[iter] := [a^2*y+b*z,-c*d^2-x*a+w]:
+Vars[iter] := [x,y,z,w]:
+params[iter] := [a,b,c,d]:
+iter := iter+1:
+
+###exm8###
+F[iter] := [b*w^2+x^2*y,a*x*z^2-c*z,d*y+w]:
+Vars[iter] := [x,y,z,w]:
+params[iter] := [a,b,c,d]:
+iter := iter+1:
+
+###exm9###
+F[iter] := [c*y*z+x^2*y,-x*z^2-a*x,b*z-c^2]:
+Vars[iter] := [x,y,z]:
+params[iter] := [a,b,c]:
+iter := iter+1:
+
+###exm10###
+F[iter] := [a*l*w+v*x,d*y^2+z*l,b*w^3-c*x^3]:
+Vars[iter] := [x,y,z,v,w]:
+params[iter] := [a,b,c,d,l]:
+iter := iter+1:
+
+###exm11###
+F[iter] := [a*y+b*z,-c*d^2-x*a*w,x*y^2]:
+Vars[iter] := [x,y,z,w]:
+params[iter] := [a,b,c,d]:
+iter := iter+1:
+
+###exm12###
+F[iter] := [x^3+b*x^2+y,3*x^3+2*b*x^2,3*x^2*y+2*b*x*y]:
+Vars[iter] := [x,y]:
+params[iter] := [b]:
+iter := iter+1:
+
+###exm13###
+F[iter] := [x+b*y+b^2+a*b,-a+b*y+b^2]:
+Vars[iter] := [x,y]:
+params[iter] := [a,b]:
+iter := iter+1:
+
+###exm14###
+F[iter] := [a*x-b, b*y-a*z, c*x^2-y, c*y^2-x+z^2]:
+Vars[iter] := [x,y,z]:
+params[iter] := [a,b,c]:
+iter := iter+1:
+
+###exm15###
+F[iter] := [a*x^2*y+b*x^2+y^3, a*x^2*y+b*x*y+c*y^2, a*y^3+b*x^2*y+c*x*y]:
+Vars[iter] := [x,y]:
+params[iter] := [a,b,c]:
+iter := iter+1:
+
+###exm16###
+F[iter] := [a*x^2+b*y*z+c*z*w, c*w^2+b*y+z, (x-z)^2+(y-w)^2, 2*d*x*w-2*b*y*z]:
+Vars[iter] := [x, y, z, w]:
+params[iter] :=[a, b, c, d]:
+iter := iter+1:
+
+###exm17###
+F[iter] := [a*x^5+x^3*y+b*y^2, 5*a*x^5+3*x^3*y, 5*a*x^4*y+3*x^2*y^2]:
+Vars[iter] := [x, y]:
+params[iter] : [a, b]:
+iter := iter+1:
+
+###exm18###
+F[iter] := [a*x^3-b*y^2+c*x^2*y, 3*a*x^3+2*c*x^2*y, 3*a*x^2*y+2*c*x*y^2]:
+Vars[iter] := [x, y]:
+params[iter] : [a, b, c]:
+iter := iter+1:
+
+###exm19###
+F[iter] := [x^5+y*x+a+b*x^2, 5*x^4+y+2*b*x, x]:
+Vars[iter] := [x, y]:
+params[iter] : [a, b]:
+iter := iter+1:
+
+###exm20###
+F[iter] := [x^5+y+a*x+b*x^2+c*x^3, 5*x^4+a+2*b*x+3*c*x^2, 20*x^3+2*b+6*c*x]:
+Vars[iter] := [x,y]:
+params[iter] : [a,b,c]:
+iter := iter+1:
+
+

@@ -1,0 +1,429 @@
+#################################################
+#    File:KapurLocalAlgOverThreeRings.mm        #
+#    Main function :  PGBFinal                  #
+#    Input :                                    # 
+#    L : list of polynomials                    #
+#    VarGlobal : list of global variables       #
+#    ParLocal : list of local parameters        #
+#    ParGlobal : list of global parameters      #                          
+#    Description : Computes comprehensive       #
+#    standard systems while working with 3 rings#
+#    for automated geometric theorem discovery  #
+#    =========================================  #
+#    Authors Contact:                           #
+#    Amir Hashemi <amir.hashemi@cc.iut.ac.ir>   #
+#    Mahsa Kazemi <mahsa.kazemi@math.iut.ac.ir> #
+#################################################
+read "WithTwoBlockOrdering.mm";
+with(Groebner):
+with(PolynomialIdeals):
+with(RandomTools):
+#<-----------------------------------------------------------------------------
+# Function: {SortLT}
+# Description: {compare two monomials based on the block ordering lex on Vars and alex on params }
+# Calling sequence:
+# {SortLT(A, B, Vars, params)}
+# Input:
+# { A : a monomial }
+# { B : a monomial}
+# {Vars : list of variables}
+# {params : list of parameters}
+# Output:
+# { }
+#>-----------------------------------------------------------------------------
+SortLT:=proc(A_in, B_in, VarGlobal::list, ParLocal::list, ParGlobal::list)
+local A, B:
+	A := LeadingMonomial(A_in, plex(op(VarGlobal),op(ParLocal), op(ParGlobal)));
+	B := LeadingMonomial(B_in, plex(op(VarGlobal),op(ParLocal), op(ParGlobal)));
+	if indets(A) subset {op(VarGlobal)}=true and indets(B) subset {op(VarGlobal)}=true then
+		if TestOrder(A,B,plex(op(VarGlobal)))=true then
+			return(false);
+		else
+			return(true);
+		end if:
+	elif indets(A) subset {op(ParLocal)}=true and indets(B) subset {op(ParLocal)}=true then
+		if degree(A,{op(ParLocal)})<degree(B,{op(ParLocal)}) then
+			return(true);
+		elif degree(A,{op(ParLocal)})>degree(B,{op(ParLocal)}) then
+			return(false); 
+		elif degree(A,{op(ParLocal)})=degree(B,{op(ParLocal)}) then
+			if TestOrder(A,B,plex(op(ParLocal)))=true then
+				return(false);
+			else
+				return(true);
+			end if:
+		end if:
+	elif indets(A) subset {op(ParGlobal)}=true and indets(B) subset {op(ParGlobal)}=true then
+		if TestOrder(A,B,plex(op(ParGlobal)))=true then
+			return(false);
+		else
+			return(true);
+		end if:	
+	elif indets(A) subset {op(ParLocal)}=true and indets(B) subset {op(VarGlobal)}=true then
+		return(false);
+	elif indets(A) subset {op(VarGlobal)}=true and indets(B) subset {op(ParLocal)}=true then
+		return(true);
+	elif indets(A) subset {op(ParGlobal)}=true and indets(B) subset {op(VarGlobal)}=true then
+		return(false);
+	elif indets(A) subset {op(VarGlobal)}=true and indets(B) subset {op(ParGlobal)}=true then
+		return(true);
+	elif indets(A) subset {op(ParGlobal)}=true and indets(B) subset {op(ParLocal)}=true then
+		return(false);
+	elif indets(A) subset {op(ParLocal)}=true and indets(B) subset {op(ParGlobal)}=true then
+		return(true);
+	end if:
+	if evalb(subs([seq(i=1,i=ParGlobal), seq(k=1,k=ParLocal)],A)=subs([seq(j=1,j=ParGlobal), seq(l=1,l=ParLocal)],B))=true then
+		if evalb(subs([seq(i=1,i=ParGlobal)],A)=subs([seq(j=1,j=ParGlobal)],B))=true then
+			if TestOrder(A, B, plex(op(ParGlobal)))=true then
+				return(false);
+			else
+				return(true);
+			end if:
+		else
+			if degree(A,{op(ParLocal)})<degree(B,{op(ParLocal)}) then
+				return(true);
+			elif degree(A,{op(ParLocal)})>degree(B,{op(ParLocal)}) then
+				return(false); 
+			elif degree(A,{op(ParLocal)})=degree(B,{op(ParLocal)}) then
+				if TestOrder(A,B,plex(op(ParLocal)))=true then
+					return(false);
+				else
+					return(true);
+				end if:
+			end if:			
+		end if:
+		
+	else 
+		if TestOrder(A, B, plex(op(VarGlobal)))=true then
+			return(false);
+		else
+			return(true);
+		end if:	
+	end if:
+	if evalb(subs([seq(i=1,i=ParGlobal), seq(k=1,k=VarGlobal)],A)=subs([seq(j=1,j=ParGlobal), seq(l=1,l=VarGlobal)],B))=true then
+		if evalb(subs([seq(i=1,i=ParGlobal)],A)=subs([seq(j=1,j=ParGlobal)],B))=true then
+			if degree(A,{op(ParGlobal)})<degree(B,{op(ParGlobal)}) then
+				return(true);
+			elif degree(A,{op(ParGlobal)})>degree(B,{op(ParGlobal)}) then
+				return(false); 
+			elif degree(A,{op(ParGlobal)})=degree(B,{op(ParGlobal)}) then
+				if TestOrder(A,B,plex(op(ParGlobal)))=true then
+					return(false);
+				else
+					return(true);
+				end if:
+			end if:		
+		else
+			if degree(A,{op(VarGlobal)})<degree(B,{op(VarGlobal)}) then
+				return(true);
+			elif degree(A,{op(VarGlobal)})>degree(B,{op(VarGlobal)}) then
+				return(false); 
+			elif degree(A,{op(VarGlobal)})=degree(B,{op(VarGlobal)}) then
+				if TestOrder(A,B,plex(op(VarGlobal)))=true then
+					return(false);
+				else
+					return(true);
+				end if:
+			end if:		
+		end if:	
+	else
+		if degree(A,{op(ParLocal)})<degree(B,{op(ParLocal)}) then
+				return(true);
+		elif degree(A,{op(ParLocal)})>degree(B,{op(ParLocal)}) then
+				return(false); 
+		elif degree(A,{op(ParLocal)})=degree(B,{op(ParLocal)}) then
+				if TestOrder(A,B,plex(op(ParLocal)))=true then
+					return(false);
+				else
+					return(true);
+				end if:
+		end if:		
+	end if:
+	if evalb(subs([seq(i=1,i=ParLocal), seq(k=1,k=VarGlobal)],A)=subs([seq(j=1,j=ParLocal), seq(l=1,l=VarGlobal)],B))=true then
+		if evalb(subs([seq(i=1,i=ParLocal)],A)=subs([seq(j=1,j=ParLocal)],B))=true then
+			if degree(A,{op(ParLocal)})<degree(B,{op(ParLocal)}) then
+				return(true);
+			elif degree(A,{op(ParLocal)})>degree(B,{op(ParLocal)}) then
+				return(false); 
+			elif degree(A,{op(ParLocal)})=degree(B,{op(ParLocal)}) then
+				if TestOrder(A,B,plex(op(ParLocal)))=true then
+					return(false);
+				else
+					return(true);
+				end if:
+			end if:		
+		else
+			if TestOrder(A, B, plex(VarGlobal))=true then
+				return(false);
+			else
+				return(true);
+			end if:
+
+		end if:
+		
+	else
+		if degree(A,{op(ParGlobal)})<degree(B,{op(ParGlobal)}) then
+				return(true);
+		elif degree(A,{op(ParGlobal)})>degree(B,{op(ParGlobal)}) then
+				return(false); 
+		elif degree(A,{op(ParGlobal)})=degree(B,{op(ParGlobal)}) then
+				if TestOrder(A,B,plex(op(ParGlobal)))=true then
+					return(false);
+				else
+					return(true);
+				end if:
+		end if:	
+		
+	end if:	
+end proc:
+#<-----------------------------------------------------------------------------
+# Function: {LT}
+# Description: {returns leading term of a polynomial }
+# Calling sequence:
+# {LT(f, Vars, params)}
+# Input:
+# { f : a polynomial }
+# { Vars : list of variables}
+# { params : list of parameters}
+# Output:
+# { }
+#>-----------------------------------------------------------------------------
+LT:=proc(f, VarGlobal::list, ParLocal::list, ParGlobal::list)
+local g, A, a, b:
+
+	g := expand(f);
+	if type(g,`+`) then
+			A := [op(g)];
+			A:=sort(A,(a,b)->SortLT(a,b,VarGlobal,ParLocal,ParGlobal));return(A[1]);
+	else
+		RETURN(g);
+	fi;
+end proc:
+#<-----------------------------------------------------------------------------
+LM:=proc(f,VarGlobal::list, ParLocal::list, ParGlobal::list)
+	return(LeadingMonomial(LT(f, VarGlobal,ParLocal,ParGlobal), plex(op(VarGlobal), op(ParLocal), op(ParGlobal))));
+end proc:
+#<-----------------------------------------------------------------------------
+Spoly:=proc(f,g,VarGlobal::list, ParLocal::list, ParGlobal::list)
+local a:
+
+	a := lcm(LM(f, VarGlobal,ParLocal,ParGlobal), LM(g,VarGlobal,ParLocal,ParGlobal));
+	return(simplify(a*f/LT(f, VarGlobal,ParLocal,ParGlobal)-a*g/LT(g, VarGlobal,ParLocal,ParGlobal)));
+end proc:
+#<-----------------------------------------------------------------------------
+ecart:=proc(f,VarGlobal::list, ParLocal::list, ParGlobal::list)
+	return(degree(f,{op(VarGlobal), op(ParLocal)})-degree(LT(f, VarGlobal,ParLocal,ParGlobal),{op(VarGlobal),op(ParLocal)}));
+end proc:
+#<-----------------------------------------------------------------------------
+IsConsistent := proc(L::list)
+local elem_in:
+	for elem_in in L[2] do
+		if RadicalMembership(elem_in, <op(L[1])>)=false  then
+			return(true);
+		end if:
+	end do:
+	return(false);	
+end proc:
+#<-----------------------------------------------------------------------------
+MakePair:=proc(L)
+local A, BB, i, m, W,j;
+
+	A := L;
+	BB := NULL;
+	for i in A do
+		m := A[1];
+		A := A[2 .. -1];
+		W := [seq([m, j], j in A)];
+		BB := BB, op(W);
+	od;
+	return([BB]);
+end proc:
+#<-----------------------------------------------------------------------------
+MinimalSTD := proc(L_in, VarGlobal::list, ParLocal::list, ParGlobal::list)
+local L, pair_list, elem_in:
+	L := L_in;
+	pair_list := MakePair(L);
+	for elem_in in pair_list do
+		if divide(LM(elem_in[1], VarGlobal, ParLocal, ParGlobal),LM(elem_in[2],VarGlobal, ParLocal, ParGlobal)) then 
+			L := {op(L)} minus {elem_in[1]};
+		elif divide(LM(elem_in[2], VarGlobal, ParLocal, ParGlobal),LM(elem_in[1], VarGlobal, ParLocal, ParGlobal)) then
+			L := {op(L)} minus {elem_in[2]};
+		end if:
+	end do:	
+	return([op(L)]);
+end proc:
+#<-----------------------------------------------------------------------------
+CheckIntersct:= proc(G_in, ParGlobal) 
+local A, elem_in:
+
+	A := [];
+	for elem_in in G_in do
+		if indets(elem_in) subset {op(ParGlobal)} then #nops(indets(elem_in)) <> 0 and
+			A := [op(A), elem_in];
+		end if:
+	end do:
+	return([A, G_in minus {op(A)}]);
+end proc:
+#<-----------------------------------------------------------------------------
+ProducT := proc (A, B)
+local u, v:
+ RETURN(simplify(expand([seq(seq(u*v, u = A), v = B)]))) 
+end proc:
+#<-----------------------------------------------------------------------------
+DicksonLM := proc(f, VarGlobal, ParLocal, ParGlobal)
+	return(LeadingMonomial(LTSecondCode(f, VarGlobal, ParLocal,ParGlobal), plex(op(VarGlobal), op(ParLocal))));
+end proc:
+#<-----------------------------------------------------------------------------
+MDBasis := proc(F, VarGlobal, ParLocal,ParGlobal)
+local F_out, pair_list,elem_in:
+ 
+	F_out :=F;
+	pair_list := MakePair(F_out);
+	for elem_in in pair_list do
+		if divide(DicksonLM(elem_in[1], VarGlobal,ParLocal,ParGlobal),DicksonLM(elem_in[2], VarGlobal, ParLocal,ParGlobal)) then
+			F_out := {op(F_out)} minus {elem_in[1]};
+		elif divide(DicksonLM(elem_in[2], VarGlobal, ParLocal,ParGlobal),DicksonLM(elem_in[1], VarGlobal, ParLocal,ParGlobal)) then
+			F_out := {op(F_out)} minus {elem_in[2]};
+		end if:
+	end do:
+	return([op(F_out)]);
+end proc:
+
+#<-----------------------------------------------------------------------------
+He:= proc(G_in, VarGlobal, ParLocal,ParGlobal)
+local hcoef, func_in:
+
+	hcoef := [];
+	for func_in in G_in do
+			hcoef := [op(hcoef), LeadingCoefficient(LTSecondCode(func_in,VarGlobal, ParLocal,ParGlobal), plex(op(VarGlobal), op(ParLocal)))];
+	end do:
+	if nops( hcoef )=0 then
+		return([1,[]]);
+	else 
+		return ([lcm(op(hcoef)),[op({op( hcoef)} minus {1,-1})]]);
+	end if:
+end proc:
+
+#<-----------------------------------------------------------------------------
+PGB := []:
+PGBMain := proc(F::list, L::list, VarGlobal::list, ParLocal::list, ParGlobal::list)
+#option trace;
+local G,IntersecAndRest,Gr,Gm,lcmAndCoeff,h,two_prod, i, j:
+global PGB:
+	if IsConsistent(L)=false then 
+		return();
+	end if:
+	###StandardBasis
+	G := ImprovedMMT([op({op(F),op(L[1])})],VarGlobal, ParLocal, ParGlobal);
+       #G := [w1+W, b-w1-W, d, a^2*y-2*a*c*y+b^2*y-2*b*d*y-1];
+	###MinimalSTD
+	G := MinimalSTD([op({op(G)})], VarGlobal, ParLocal, ParGlobal);
+	if {1} subset {op(G)} then 
+		return([(L[1],L[2],{1})]);
+	end if:
+	IntersecAndRest := CheckIntersct({op(G)},ParGlobal);
+	Gr := IntersecAndRest[1];
+	if IsConsistent([Gr,L[2]])=false then 
+		return(PGB);
+	else
+		Gm := MDBasis(IntersecAndRest[2],VarGlobal,ParLocal,ParGlobal);
+		lcmAndCoeff := He(Gm, VarGlobal, ParLocal,ParGlobal);
+		h := lcmAndCoeff[1];
+		two_prod := ProducT(L[2],[h]);
+		if IsConsistent([Gr,two_prod])=true then 
+			PGB := PGB,[(Gr,two_prod,Gm)];
+		end if:
+		if nops(lcmAndCoeff[2])=0 then 
+		return(PGB);
+		#PGB := PGB, PGBMain([op({op(G)} minus {op(Gr)})],[Gr,L[2]],vars,params,Tord);
+		else 
+		return(PGB,PGBMain([op({op(G)} minus {op(Gr)})],[[op({op(Gr),lcmAndCoeff[2][1]})],L[2]],VarGlobal, ParLocal, ParGlobal), seq(PGBMain([op({op(G)} minus {op(Gr)})],[[op({op(Gr),lcmAndCoeff[2][i]})],ProducT(L[2],[mul(lcmAndCoeff[2][j],j=1..i-1)])],VarGlobal, ParLocal, ParGlobal),i=2..nops(lcmAndCoeff[2])));#{("other cases",{1})}
+	end if:
+	end if:
+end proc:
+#<-----------------------------------------------------------------------------
+MinimalOutput := proc(L, VarGlobal,ParLocal,ParGlobal)
+local A, branch_in:
+	A := NULL;
+	for branch_in in L do
+		branch_in[3] := MDBasis(branch_in[3], VarGlobal,ParLocal,ParGlobal);
+		A := A, branch_in:
+	end do:
+	return A;
+end proc:
+#<-----------------------------------------------------------------------------
+PGBFinal := proc(L, VarGlobal, ParLocal, ParGlobal)
+local step_one, step_two:
+	step_one := PGBMain(L, [[],[1]], VarGlobal, ParLocal, ParGlobal);
+	step_two := MinimalOutput([op({step_one} minus {[]})], VarGlobal,ParLocal,ParGlobal);
+	return(	step_two);	
+end proc:
+#<-----------------------------------------------------------------------------
+SortLTSecondCode:=proc(A_in, B_in, Vars::list, params::list)
+local A, B:	
+	A := LeadingMonomial(A_in, plex(op(Vars),op(params)));
+	B := LeadingMonomial(B_in, plex(op(Vars),op(params)));
+	if indets(A) subset {op(Vars)}=true and indets(B) subset {op(Vars)}=true then
+		if TestOrder(A,B,plex(op(Vars)))=true then
+			return(false);
+		else
+			return(true);
+		end if:
+	elif indets(A) subset {op(Vars)}=true and indets(B) subset {op(params)}=true then
+		return(true);
+	elif indets(A) subset {op(params)}=true and indets(B) subset {op(Vars)}=true then
+		return(false);
+	elif indets(A) subset {op(params)}=true and indets(B) subset {op(params)}=true then
+		if degree(A,{op(params)})<degree(B,{op(params)}) then
+			return(true);
+		elif degree(A,{op(params)})>degree(B,{op(params)}) then
+			return(false); 
+		elif degree(A,{op(params)})=degree(B,{op(params)}) then
+			if TestOrder(A,B,plex(op(params)))=true then
+				return(false);
+			else
+				return(true);
+			end if:
+		end if:
+	else 
+		if evalb(subs([seq(i=1,i=params)],A)=subs([seq(j=1,j=params)],B))=true then
+			if degree(A,{op(params)})<degree(B,{op(params)}) then
+				return(true);
+			elif degree(A,{op(params)})>degree(B,{op(params)}) then
+				return(false); 
+			elif degree(A,{op(params)})=degree(B,{op(params)}) then
+				if TestOrder(A,B,plex(op(params)))=true then
+					return(false);
+				else
+					return(true);
+				end if:
+			end if:
+		else 
+			if TestOrder(A,B,plex(op(Vars)))=true then
+				return(false);
+			else
+				return(true);
+			end if:
+		end if: 
+	end if:
+end proc:
+#<-----------------------------------------------------------------------------
+LTSecondCode:=proc(f,Vars::list, params::list,parglob::list)
+local g, A, a, b, index_new, emp_plate, elem_in:
+
+	g := expand(f);
+	if type(g,`+`) then
+			A := [op(g)];
+			A:=sort(A,(a,b)->SortLTSecondCode(a,b,Vars,params));#return(A[1]);
+			index_new := indets(A[1]) minus {op(parglob)};
+			emp_plate := A[1];
+			for elem_in in A[2..-1] do
+				if evalb(indets(elem_in)minus{op(parglob)}=index_new) then
+					emp_plate := emp_plate, elem_in;
+				end if:				
+			end do:
+			return(add(j, j=[emp_plate]));
+	else
+		RETURN(g);
+	fi;
+end proc:

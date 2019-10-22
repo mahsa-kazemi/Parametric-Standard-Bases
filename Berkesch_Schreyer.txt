@@ -1,0 +1,137 @@
+#################################################
+#    File:Berkesch_Schreyer.mm                  #
+#    Main function :  BerkSchreyer              #
+#    Input :                                    #
+#    F_in : a list of polynomials               #
+#    T_in : a global monomial ordering          #
+#    Description : Computes Groebner bases      #
+#    through Berkesch_Schreyer algorithm        #
+#    =========================================  #
+#    Authors Contact:                           #
+#    Amir Hashemi <amir.hashemi@cc.iut.ac.ir>   #
+#    Mahsa Kazemi <mahsa.kazemi@math.iut.ac.ir> #
+#################################################
+with(Groebner):
+with(PolynomialIdeals):
+#<-----------------------------------------------------------------------------
+LM:=proc(p,T) 
+	return(LeadingMonomial(p,T));
+end:
+#<-----------------------------------------------------------------------------
+LT:=proc(p,T)
+	return(LeadingTerm(p,T)[1]*LeadingTerm(p,T)[2]);
+end:
+#<-----------------------------------------------------------------------------
+TestGCD := proc(h_in, B_in, T)
+local A, elem_in:
+
+	A := NULL;
+	for elem_in in B_in do
+		if lcm(LM(h_in, T), LM(elem_in, T))=1 then
+			A := A, elem_in;
+		end if:
+	end do:
+	return({A});
+end proc:
+#<-----------------------------------------------------------------------------
+Reduction:=proc(a_in, B_in, T)
+local f, B, flag, g, FLAG;
+
+	f := a_in[1];
+	B := B_in;
+	flag := false;
+	FLAG := false;
+	while flag=false do
+		flag := true;
+		for g in B while f<>0 do 
+			if divide(LM(f,T),LM(g[1],T))=true then
+				if FLAG=true then
+					f := expand(f-LT(f,T)*g[1]/LT(g[1],T));
+					flag := false;
+				elif FLAG=false and f[2]<>g[2] then 
+					f := expand(f-LT(f,T)*g[1]/LT(g[1],T));
+					FLAG := true;
+					flag := false;
+				fi;
+			fi;
+		od;
+	od;
+	return(f);              
+end:
+#<-----------------------------------------------------------------------------
+SortP := proc(a_in, b_in, T_in)
+
+	if TestOrder(LM(a_in, T_in), LM(b_in, T_in), T_in) then
+		return(true);
+	else
+		return(false);
+	end if:
+end proc:
+#<-----------------------------------------------------------------------------
+BerkSchreyer := proc(F_in::list, T_in)
+local P, B, j, a, h, i, lm_list, colon_set, ready_colon, gcd_out, ready_multi, before_P, cnt,firsttime, firstbytes,secondtime, secondbytes,DRZ, max_deg, d_out:
+	firsttime, firstbytes := kernelopts(cputime, bytesused);
+
+	DRZ := 0;
+	cnt := 0;
+	P := [seq([F_in[j], j], j = 1 .. nops(F_in))];;
+	B := [];
+	d_out := 0;
+	while nops(P)<>0 do
+		P := sort(P,SortP);
+		a := P[1];
+		d_out := max(d_out, degree(a[1]));
+		P := P[2 .. -1];
+		if nops(B)<>0 then
+			h := Reduction(a, B, T_in);
+			if h<>0 then
+				lm_list := [seq(LM(i[1], T_in), i=B)];
+				colon_set := Quotient(<op(lm_list)>,<LM(h, T_in)>);
+				ready_colon := IdealInfo:-Generators(colon_set);
+				gcd_out := TestGCD(h, B, T_in);
+				ready_multi := ready_colon minus gcd_out;
+				cnt := cnt+nops(B)-nops(ready_multi);
+				before_P := seq([k*h,nops(B)+1], k=ready_multi);
+				P := [op(P), before_P];
+			else
+				DRZ := DRZ+1;
+			end if:
+		end if:
+		if nops(B)=0 then
+			B := [op(B),[a[1], nops(B)+1]];
+		elif nops(B)<>0 and h<>0 then
+			B := [op(B),[h, nops(B)+1]];	
+		end if:
+	end do:	
+	max_deg := max(seq(degree(i[1]), i=B));
+	#return([seq(tt[1], tt=B)], cnt);
+	#return([seq(tt[1], tt=B)]);
+	secondtime, secondbytes := kernelopts(cputime, bytesused);
+	printf("\n", ""):
+	printf("\n", ""):
+	printf("%1s %1s %1s %1s %1s:\n", Some, information, about, the, computation):
+	printf("\n", ""):
+	printf("%-1s %1s %1s %1s:         %3a %3a\n", The, cpu, time, is, secondtime-firsttime, sec):
+	printf("%-1s %1s %1s:         %3a %3a\n", The, used, memory, secondbytes-firstbytes, bytes):
+	printf("%-1s  %1s  %1s  : %3a  \n", Groebner, Basis, is, [seq(B[i][1], i = 1 .. nops(B))]):
+	printf("%-1s  %1s  %1s  : %3a  \n", The, firstsecond, detected, cnt):
+	printf("%-1s  %1s  %1s  : %3a  \n", number, zero, reductions, DRZ):
+	printf("%-1s  %1s  %1s  : %3a  \n", The, number, polys, nops(B)):
+	printf("%-1s  %1s  %1s  : %3a  \n", The, max, degree, max_deg):
+	printf("%-1s  %1s  %1s  : %3a  \n", The, max, needed, d_out):
+end proc:
+#<-----------------------------------------------------------------------------
+SURE:=proc(F,T)
+local L, A, N, t, BerkSchreyerC, BasisC, i:
+	L := BerkSchreyer(F, T);
+	A := Basis(F, T);
+	N := {seq(NormalForm(t, A, T), t = L)};
+	BerkSchreyerC := Basis([seq(LeadingTerm(i, T)[1]*LeadingTerm(i, T)[2], i = L)], T);
+	BasisC := Basis([seq(LeadingTerm(i, T)[1]*LeadingTerm(i, T)[2], i = A)], T);
+	if N={0} then
+		return(evalb({BerkSchreyerC} = {BasisC}));
+	else
+		return((nothing));
+	end if:
+end proc:
+#<-----------------------------------------------------------------------------

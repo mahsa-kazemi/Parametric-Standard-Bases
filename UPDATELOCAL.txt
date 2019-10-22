@@ -1,0 +1,263 @@
+#################################################
+# File:UPDATELOCAL.mm                           #
+#  Main Function :  ImprovedStandard            #
+#  Input :                                      #
+#  K : list of polynomials                      #
+#  vars : list of variables                     #
+#   Description : Computes standard bases       #
+#   through installing the local version of     #
+#   UPDATE algorithm on Buchberger algorithm    #    
+#   ==========================================  #
+#    Authors Contact:                           #
+#    Amir Hashemi <amir.hashemi@cc.iut.ac.ir>   #
+#    Mahsa Kazemi <mahsa.kazemi@math.iut.ac.ir> #
+#################################################
+with(Groebner):
+with(combinat):
+#<-----------------------------------------------------------------------------
+LT:=proc(f,Vars)
+local g, A, BC, d, flag, N, i;
+
+	g := expand(f);
+	if type(g,`+`) then
+		A := [op(g)];
+		A := sort(A,(a,b)-> degree(a) < degree(b));
+		d := degree(A[1]);
+		flag := false;
+		N := NULL;
+		for i from 1 to nops(A) while flag=false do 
+			if degree(A[i])=d then
+				N := N, A[i];
+			else
+				flag := true;
+			fi;
+		od;
+		BC := [N];
+		BC:=sort(BC,(a,b)-> TestOrder(b, a, plex(op(Vars))));
+		RETURN(BC[1]);
+	else
+		RETURN(g);
+	fi;
+end:
+#<-----------------------------------------------------------------------------
+LM:=proc(f,Vars)
+	return(LeadingMonomial(LT(f, Vars), plex(op(Vars))));
+end:
+#<-----------------------------------------------------------------------------
+ecart:=proc(f,Vars)
+	return(degree(f)-degree(LT(f, Vars)));
+end:
+#<-----------------------------------------------------------------------------
+Spoly:=proc(f,g,Vars)
+local a;
+
+	a := lcm(LM(f, Vars), LM(g, Vars));
+	return(simplify(a*f/LT(f, Vars)-a*g/LT(g, Vars)));
+end:
+#<-----------------------------------------------------------------------------
+ExtraTest:=proc(A,B,Vars)
+local a,b;
+	a := A;
+	b := B;
+	if degree(a)<degree(b) then
+		return(false);
+	elif degree(a)>degree(b) then
+		return(true);
+	elif degree(a)=degree(b) and TestOrder(a,b,plex(op(Vars)))=true then
+		return(true);
+	elif degree(a)=degree(b) and TestOrder(a,b,plex(op(Vars)))=false then
+		return(false);
+	fi;
+end:
+#<-----------------------------------------------------------------------------
+NewTest:=proc(Z,W,Vars)
+	if ecart(Z,Vars)<ecart(W,Vars) then
+		return(true);
+	elif ecart(Z,Vars)>ecart(W,Vars) then
+		return(false);
+	elif ecart(Z,Vars)=ecart(W,Vars) and ExtraTest(LM(Z,Vars),LM(W,Vars),Vars)=true then
+		return(true);
+	elif ecart(Z,Vars)=ecart(W,Vars) and ExtraTest(LM(Z,Vars),LM(W,Vars),Vars)=false then
+		return(false);
+	fi;
+end:
+#<-----------------------------------------------------------------------------
+MoraNF:=proc(f,F,Vars)
+local h, L, M, t, AA, g, W,l;
+
+	h := f;
+	L := F;
+	l := x->divide(LT(h,Vars),LT(x,Vars));
+	M := select(l,L);
+	while h<>0 and nops(M)<>0 do
+		AA := sort(M,(a,b)->NewTest(a, b, Vars));
+		g := AA[1];
+		if ecart(g,Vars)>ecart(h,Vars) then
+			L := [op(L),h];
+		fi;
+		h := simplify(h-LT(h, Vars)*g/LT(g, Vars));
+		if h<>0 then 
+			l := x->divide(LT(h,Vars),LT(x,Vars));
+			M := select(l,L);
+		fi;
+	od;
+	RETURN(h);
+end:
+#<-----------------------------------------------------------------------------
+TEST:=proc(A,B,Vars)
+local a,b;
+
+	a := lcm(LM(A[1], Vars), LM(A[2], Vars));
+	b := lcm(LM(B[1], Vars), LM(B[2], Vars));
+	if degree(a)<degree(b) then
+		return(false);
+	elif degree(a)>degree(b) then
+		return(true);
+	elif degree(a)=degree(b) and TestOrder(a,b,plex(op(Vars)))=true then
+		return(true);
+	elif degree(a)=degree(b) and TestOrder(a,b,plex(op(Vars)))=false then
+		return(false);
+	fi;
+end:
+#<-----------------------------------------------------------------------------
+ImprovedStandard:=proc(K,vars)
+local G, B, f, i, rem, BE, F, GG, BB, GH, BH, A, R, fcriterion, scriterion, reduction, firsttime, secondtime, firstbytes, secondbytes, critical, d_out;
+global Vars;
+	firsttime, firstbytes := kernelopts(cputime, bytesused);
+	Vars := vars;
+	F := K;
+	G := {};
+	BE := {};
+	fcriterion := 0;
+	scriterion := 0;
+	reduction := 0;
+	critical := 0;
+	d_out := 0;
+	while nops(F)<>0 do
+		f := F[1];
+		F := F[2..-1];
+		A := UPDATE(G, BE, f);
+		G := A[1];
+		BE := A[2];
+		fcriterion := fcriterion+A[3];
+		scriterion := scriterion+A[4];
+		critical := critical+A[5];
+	od;
+	while BE<>{} do 
+		BE := sort([op(BE)],(a,b)->TEST(a, b, Vars));
+			i := BE[1];
+			d_out := max(d_out, degree(simplify(lcm(LM(i[1], vars), LM(i[2], vars))*i[1]/LT(i[1], vars))));
+			BE := {op(BE)} minus {i};
+			rem := MoraNF(Spoly(op(i), Vars), G, Vars);
+			if rem<>0 then 
+				R := UPDATE(G, BE, rem);
+				G := R[1];
+				BE := R[2];
+				fcriterion := fcriterion+R[3];
+				scriterion := scriterion+R[4];
+				critical := critical+R[5];
+			else
+				reduction := reduction+1;
+			fi;
+	od;
+	#return(G);
+	secondtime, secondbytes := kernelopts(cputime, bytesused);
+	printf("\n", ""):
+	printf("\n", ""):
+	printf("%1s %1s %1s %1s %1s:\n", Some, information, about, the, computation);
+	printf("\n", "");
+	printf("%-1s %1s %1s %1s:         %3a %3a\n", The, cpu, time, is, secondtime-firsttime, sec);
+	printf("%-1s %1s %1s:         %3a %3a\n", The, used, memory, secondbytes-firstbytes, bytes);
+	printf("%-1s  %1s  %1s  : %3a  \n", The, first, detected, fcriterion);
+	printf("%-1s  %1s  %1s  : %3a  \n", The, second, detected, scriterion);
+	printf("%-1s  %1s  %1s  %1s %1s: %3a  \n", The, number, of, zero, reductions, reduction);
+	printf("%-1s  %1s  %1s  %1s %1s: %3a  \n", The, number, of, Critical, Pairs, critical);
+	printf("%1s %1s :%3a\n", max, needed, d_out);
+	#printf("%1s %1s :%3a\n", standard, bases, G);
+	printf("\n", "");
+	printf("\n", "");
+end:
+#<-----------------------------------------------------------------------------
+check:=proc(G,k) 
+local flag,t;
+	flag := false;
+	for t in G while flag=false do
+		if divide(lcm(LM(k[1],Vars),LM(k[2],Vars)),lcm(LM(t[1],Vars),LM(t[2],Vars)))=true then
+			flag := true;
+		fi;
+	od;
+	return(flag);
+end:
+#<-----------------------------------------------------------------------------
+UPDATE:=proc(H,Y,d)
+local C, DD, j, E, t, k, w, Bnew, Gnew, h, G, B, first, second, Num;
+
+	h := d;
+	G := H;
+	B := Y;
+	C := {seq({h, i}, i = G)}; 
+	Num := nops(C);
+	DD := {};
+	second := 0;
+	while C<>{} do
+		j := C[1];
+		C := C minus {j};
+		if gcd( LM(j[1],Vars),LM(j[2],Vars))=1 or  op({check(C,j), check(DD,j)})=false then 
+			DD := {op(DD),j};
+		else
+			second := second+1;
+		fi;
+	od;
+	E := {};
+	first := 0;
+	while DD<>{} do 
+		t := DD[1];
+		DD := DD minus {t};
+		if gcd( LM(t[1],Vars),LM(t[2],Vars))<>1 then
+			E := {op(E),t};
+		else
+			first := first+1;
+		fi;
+	od;
+	Bnew := E;
+	while nops(B)<>0 do
+		k := B[1];
+		B := B minus {k};
+		if not divide(lcm(LM(k[1],Vars),LM(k[2],Vars)),LM(h,Vars)) 
+				        or
+			lcm(LM(k[1], Vars), LM(h, Vars)) = lcm(LM(k[1], Vars), LM(k[2], Vars))
+					or
+			lcm(LM(h,Vars),LM(k[2],Vars))=lcm(LM(k[1],Vars),LM(k[2],Vars)) then
+				Bnew := {op(Bnew),k};
+		else
+			      second := second+1;
+		fi;
+	od;
+	Gnew := {};
+	while G<>{} do
+		w := G[1];
+		G := G minus {w};
+		if divide(LM(w,Vars),LM(h,Vars))=false then
+			Gnew := {op(Gnew),w};
+		fi;
+	od;
+	Gnew := {op(Gnew),h};
+	return([Gnew, Bnew, first, second, Num]);
+ end:
+#<-----------------------------------------------------------------------------
+sure:=proc(F,Vars)
+
+local L,A,N,M;
+
+	L := ImprovedStandard(F, Vars);
+	A := choose(L, 2);
+	N := {seq(MoraNF(Spoly(t[1], t[2], Vars), L, Vars), t = A)};
+	M := {seq(MoraNF(j, L, Vars), j = F)};
+	if M={0} and N={0} then
+		return(true);
+	else
+		return(false);
+	fi;
+end:
+
+ 

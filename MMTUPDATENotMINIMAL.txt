@@ -1,0 +1,413 @@
+#################################################
+# File : MMTUPDATENotMINIMAL.mm                 #
+#    Main function :  ImprovedMMT               #
+#    Input :                                    #
+#    K : list of polynomials                    #
+#    vars : list of variables                   #
+#    Description : Computes standard basis      #
+#    relying on MMT+UPDATE-MINIMAL algorithm    #
+#    note that here the only ring is the ring   #
+#    of variables.                              #
+#    ========================================   #
+#    Authors Contact:                           #
+#    Amir Hashemi <amir.hashemi@cc.iut.ac.ir>   #
+#    Mahsa Kazemi <mahsa.kazemi@math.iut.ac.ir> #
+#################################################
+with(Groebner):
+with(combinat):
+#<-----------------------------------------------------------------------------
+Check:=proc(H,t,Vars)
+local i;
+
+	for i in H do
+		if  divide(t,LTS(i,Vars))=true then #i
+			return(true);
+		fi;
+	od;
+	return(false);
+end:
+#<-----------------------------------------------------------------------------
+LT:=proc(f,Vars)
+local g, A, BC, d, flag, N, i;
+
+	g := expand(f);
+	if type(g,`+`) then
+		A := [op(g)];
+		A := sort(A,(a,b)-> degree(a) < degree(b));
+		d := degree(A[1]);
+		flag := false;
+		N := NULL;
+		for i from 1 to nops(A) while flag=false do 
+			if degree(A[i])=d then
+				N := N, A[i];
+			else
+				flag := true;
+			fi;
+		od;
+		BC := [N];
+		BC := sort(BC,(a,b)-> TestOrder(b, a, plex(op(Vars))));
+		RETURN(BC[1]);
+	else
+		RETURN(g);
+	fi;
+end:
+#<-----------------------------------------------------------------------------
+LM:=proc(f,Vars)
+	return(LeadingMonomial(LT(f, Vars), plex(op(Vars))));
+end:
+#<-----------------------------------------------------------------------------
+Spoly:=proc(f,g,Vars)
+local a;
+
+	a := lcm(LM(f, Vars), LM(g, Vars));
+	return(simplify(a*f/LT(f, Vars)-a*g/LT(g, Vars)));
+end:
+#<-----------------------------------------------------------------------------
+MoraNFM:=proc(f,F,Vars)
+local h, L, M, t, A, g, l;
+
+	h := f;
+	L := F;
+	l := x->divide(LT(h,Vars),LT(x,Vars));
+	M := select(l,L);
+	while h<>0 and nops(M)<>0 do
+		A := sort(M,(a,b)->NEWTEST(a,b,Vars));
+		g := A[1];
+		if ecart(g,Vars)>ecart(h,Vars) then
+			L := [op(L),h];
+		fi;
+		h := simplify(h-LT(h, Vars)*g/LT(g, Vars));
+		if h<>0 then
+			l := x->divide(LT(h,Vars),LT(x,Vars));
+			M := select(l,L);
+		fi;
+	od;
+	RETURN(h);
+end:
+#<-----------------------------------------------------------------------------
+NEWTEST:=proc(Z,W,Vars)
+	if ecart(Z,Vars)<ecart(W,Vars) then
+		return(true);
+	elif ecart(Z,Vars)>ecart(W,Vars) then
+		return(false);
+	elif ecart(Z,Vars)=ecart(W,Vars) and TEST(LM(Z,Vars),LM(W,Vars),Vars)=true then
+		return(true);
+	elif ecart(Z,Vars)=ecart(W,Vars) and TEST(LM(Z,Vars),LM(W,Vars),Vars)=false then
+		return(false);
+	fi;
+end:
+#<-----------------------------------------------------------------------------
+LTS:=proc(J,VI)
+local A, C, S, M, t, N, i, n, Ss, Q,ay;
+global B;
+
+	if type(J,`+`) then 
+		A := collect(J, {seq(e[i], i = 1 .. nops(B))});
+		Q := sort(A, [seq(e[i], i = 1 .. nops(B))], descending);
+		C := [op(Q)];
+		ay := sort([seq(B[i], i = 1 .. nops(B))],(a,b)-> a[2]<b[2]);
+		Ss := subs({seq(e[i] = ay[i][1], i = 1 .. nops(ay))}, C);
+		M := [seq(LM(f, VI), f = Ss)];
+		t := LM(add(i, i = M), VI);
+		N := NULL;
+		for i from 1 to nops(M) do
+			if M[i]=t then
+				N := N, i;
+			fi;
+		od;
+		n := max(N);
+		return(LT(C[n], VI));
+	elif type(J,`*`) and  type([op(J)][1],`+`) then
+		 return(LT(J,VI));
+	else
+		return(J);
+	fi;
+end:
+#<-----------------------------------------------------------------------------
+principal:=proc(gg)
+local R, t, g;
+global B;
+
+	g := gg;
+	R := NULL;
+	for t in {op(B)} minus {g} do 
+		R := R,simplify(t[1]/gcd(t[1],g[1])*e[g[2]]+expand(-g[1])/gcd(t[1],g[1])*e[t[2]]);#LT(t[1]*e[g[2]],Vars);t[1]*e[g[2]]+expand(-g[1])*e[t[2]];LT(expand(-g[1])*e[t[2]],Vars);
+	od;
+	return(R);
+end:
+#<-----------------------------------------------------------------------------
+TEST:=proc(A,C,Vars)
+	if degree(A)<degree(C) then
+	      return(false);
+	elif degree(A)>degree(C) then
+		return(true);
+	elif degree(A)=degree(C) and TestOrder(A,C,plex(op(Vars)))=true then
+		return(true);
+	elif degree(A)=degree(C) and TestOrder(A,C,plex(op(Vars)))=false then
+		return(false);
+	fi;
+end:
+#<-----------------------------------------------------------------------------
+ImprovedMMT:=proc(K,vars)
+local Vars, F, P, f, A, a, flag, FLAG, g, R, firsttime, firstbytes, fcriterion, scriterion, reduction, critical, secondtime, secondbytes, DRZ,combinations,U, d_out;
+global alarm, S, Y, B, Cnew, Bnew;
+
+	firsttime, firstbytes := kernelopts(cputime, bytesused);
+	d_out := 0;
+	Vars := vars;
+	F := K;
+	B := {};
+	P := {};
+	S := {};
+	alarm := false;
+	fcriterion := 0;
+	scriterion := 0;
+	reduction := 0;
+	critical := 0;
+	DRZ := 0;
+	while nops(F)<>0 do
+		f := F[1];
+		F := F[2..-1];
+		A := UPDATE(B, P, S, f, Vars);
+		B := A[1];
+		P := A[2];
+		S := A[3];
+		fcriterion := fcriterion+A[4];
+		scriterion := scriterion+A[5];
+		critical := critical+A[6];	
+	od;
+	alarm := true;
+	while nops(P)<>0 do 
+		P := sort(P,(z,w)->TEST(z[3],w[3],Vars));
+		a := P[1];
+		P := P[2 .. -1];
+		if Check(S,a[4],Vars)=false then 
+			d_out := max(d_out,degree(a[1]));
+			f := [a[1],op([op(a[4])][-1])];
+			Y := a[4];
+			U := MoraNF(f, B, Vars);
+			if U<>0 then 
+				R := UPDATE(B, P, S, U, Vars);
+				B := R[1];
+				P := R[2];
+				S := R[3];
+				fcriterion := fcriterion+R[4];
+				scriterion := scriterion+R[5];
+				critical := critical+R[6];
+			else
+				reduction := reduction+1;
+			fi;
+			if {Y}subset{seq(e[i],i=1..nops(K))} then 
+				S := [op(S)];
+			else
+				S := [op(S), Y];
+			fi;
+		else
+			DRZ := DRZ+1;
+		fi;
+	od;
+	#return([seq(B[i][1], i = 1 .. nops(B))]);
+	#return([seq(B[i][1], i = 1 .. nops(B)), seq(q[1], q = [mahsa])]);
+	secondtime, secondbytes := kernelopts(cputime, bytesused);
+	printf("\n", ""):
+	printf("\n", ""):
+	printf("%1s %1s %1s %1s %1s:\n", Some, information, about, the, computation);
+	printf("\n", "");
+	printf("%-1s %1s %1s %1s:  %3a %3a\n", The, cpu, time, is, secondtime-firsttime, sec):
+	printf("%-1s %1s %1s:  %3a %3a\n", The, used, memory, secondbytes-firstbytes, bytes):
+	#printf("%-1s  %1s  %1s  : %3a  \n", Groebner, Basis, is, [seq(B[i][1], i = 1 .. nops(B)), seq(q[1], q = [mahsa])]):
+	#printf("%-1s  %1s  %1s  : %3a  \n", Groebner, Basis, is, [seq(B[i][1], i = 1 .. nops(B))]):
+	printf("%-1s  %1s  %1s  : %3a  \n", The, first, detected, fcriterion):
+	printf("%-1s  %1s  %1s  : %3a  \n", The, second, detected, scriterion):
+	printf("%-1s  %1s  %1s  %1s %1s: %3a  \n", The, number, of, zero, reductions, reduction):
+	printf("%-1s  %1s  %1s  %1s %1s: %3a  \n", The, number, of, Critical, Pairs, critical):
+	printf("%-1s  %1s  %1s  : %3a  \n", Removed, Reduction, Zero, DRZ):
+	printf("%-1s  %1s  %1s  : %3a  \n", The, maximum, needed, d_out):
+	#printf("%-1s  %1s  %1s  : %3a  \n", Combinations, Groebner, Basis, [combinations]):
+	#printf("%-1s  %1s  %1s  : %3a  \n", The, syzygies, are, S):
+end:
+#<-----------------------------------------------------------------------------
+ecart:=proc(f,Vars)
+
+	return(degree(f)-degree(LT(f, Vars)));
+end:
+#<-----------------------------------------------------------------------------
+NewTest:=proc(Z,W,Vars)
+	if ecart(Z[1],Vars)<ecart(W[1],Vars) then
+		return(true);
+	elif ecart(Z[1],Vars)>ecart(W[1],Vars) then
+		return(false);
+	elif ecart(Z[1],Vars)=ecart(W[1],Vars) and TEST(LM(Z[1],Vars),LM(W[1],Vars),Vars)=true then
+		return(true);
+	elif ecart(Z[1],Vars)=ecart(W[1],Vars) and TEST(LM(Z[1],Vars),LM(W[1],Vars),Vars)=false then
+		return(false);
+	fi;
+end:
+#<-----------------------------------------------------------------------------
+MoraNFOld:=proc(f,F,Vars)
+local h, L, M, t, AA, g, W,l,v;
+global Y;
+
+	h := f[1];
+	L := F;
+	l := x->divide(LT(h, Vars), LT(x[1], Vars));
+	M := select(l, L);
+	v := Q->Q[2]<>f[2];
+	M := select(v,M);
+	while h<>0 and nops(M)<>0 do
+		AA := sort(M,(a,b)->NewTest(a,b,Vars));
+		g := AA[1][1];
+		if ecart(g,Vars)>ecart(h,Vars) then
+			L := [op(L),[h,f[2]]];
+		fi;
+		h := simplify(h-LT(h, Vars)*g/LT(g, Vars));
+		if h<>0 then
+			l := x->divide(LT(h, Vars), LT(x[1], Vars));
+			M := select(l, L);
+		fi;
+	od;
+	RETURN(h);
+end:
+#<-----------------------------------------------------------------------------
+MoraNF:=proc(f,F,Vars)
+local h, L, M, t, AA, g, W,l,v,flag;
+global Y;
+	h := f[1];
+	L := F;
+	l := x->divide(LT(h, Vars), LT(x[1], Vars));
+	M := select(l, L);
+	flag := false;
+	while h<>0 and nops(M)<>0 do
+		AA := sort(M,(a,b)->NewTest(a,b,Vars));
+		g := AA[1][1];
+		if flag=false and AA[1][2]=f[2] then
+			AA := AA[2..-1];
+			g := AA[1][1];
+		end if:
+		if flag=true then
+			if ecart(g,Vars)>ecart(h,Vars) then
+				L := [op(L),[h,f[2]]];
+			fi;
+			h := simplify(h-LT(h, Vars)*g/LT(g, Vars));
+			if h<>0 then
+				l:=x->divide(LT(h, Vars), LT(x[1], Vars));
+				M := select(l, L);
+			fi;
+		elif flag=false and AA[1][2]<>f[2] then
+			if AA[1][2]>f[2] then 
+				Y := LT(h,Vars)*e[AA[1][2]]/LT(g, Vars);
+			fi;
+			if ecart(g,Vars)>ecart(h,Vars) then
+				L := [op(L),[h,f[2]]];
+			fi;
+			h := simplify(h-LT(h, Vars)*g/LT(g, Vars));
+			if h<>0 then
+				l := x->divide(LT(h, Vars), LT(x[1], Vars));
+				M := select(l, L);
+			fi;
+			flag := true;
+		fi;
+	od;
+	RETURN(h);
+end:
+#<-----------------------------------------------------------------------------
+check:=proc(G,k,Vars) 
+#option trace;
+local t;
+	for t in G do
+		if divide(k,t[3])=true then 
+			return(true);
+		fi;
+	od;
+	return(false);
+end:
+#<-----------------------------------------------------------------------------
+UPDATE:=proc(H,YY,Q,d,Vars)
+local h, P, C, v, DD, j, DDD, E, t, Pnew, k, second, first, Num, Bold, i, c;
+global alarm, S, Bnew, Cnew;
+
+	Bold := H;
+	P := YY;
+	S := Q;
+	h := d;
+	second := 0;
+	C := NULL;
+	if nops(H)<>0 then 
+		for i in Bold do
+			C := C, [lcm(LM(h, Vars), LM(i[1], Vars))*h/LM(h, Vars), gcd(LM(h, Vars), LM(i[1], Vars)), lcm(LM(h, Vars), LM(i[1], Vars)), lcm(LM(h, Vars), LM(i[1], Vars))*e[H[-1][2]+1]/LM(h, Vars), [h, i[1]]];
+		od;
+		C := [C];
+	else
+		C := [C];
+	fi;
+	Num := nops(C);
+	DD := {};
+	while nops(C)<>0 do
+		j := C[1];
+		C :=[op({op(C)} minus {j})];
+		if j[2]=1 or  op({check(C,j[3],Vars), check(DD,j[3],Vars)})=false then
+			DD := {op(DD),j};
+		else
+			second := second+1;
+		fi;
+	od;
+	DDD := [op(DD)];
+	E := NULL;
+	first := 0;
+	while nops(DDD)<>0 do 
+		t := DDD[1];
+		DDD:=[op({op(DDD)} minus {t})];
+		if t[2]<>1 then 
+			E := E, t;
+		else
+			first := first+1;
+		fi;
+	od;
+	Pnew := [E];
+	while nops(P)<>0 do
+		k := P[1];
+		P := {op(P)} minus {P[1]};
+		if not divide(k[3],LM(h,Vars))
+			         or
+			lcm(LM(k[5][1], Vars), LM(h, Vars)) = k[3]
+				 or
+			lcm(LM(h,Vars),LM(k[5][2],Vars))=k[3] then
+				Pnew := [op({op(Pnew),k})];
+		else
+				second := second+1;
+		fi;
+      od;
+	Bnew := op({op(Bold)} minus {{}});
+	if nops(H)=0 then
+		Bnew := [Bnew, [h, nops(H)+1]];
+        else
+		    Bnew := [Bnew, [h, H[-1][2]+1]];
+        fi;
+        if alarm=true then
+		if nops(H)<>0 then
+			S := [op(S),principal([h, H[-1][2]+1])];
+               fi;
+	elif alarm=false then
+		S := [op(S)];
+	fi;
+	return([Bnew, Pnew, S, first, second, Num, [Cnew]]);
+end:
+#<-----------------------------------------------------------------------------
+SURE:=proc(F,Vars)
+local L, K, A, N, M;
+
+	L := ImprovedMMT(F, Vars);
+	if nops(L)=1 then
+		return(true);
+	end if:
+	A := choose(L, 2);
+	N := {seq(MoraNFM(Spoly(t[1], t[2], Vars), L, Vars), t = A)};
+	M := {seq(MoraNFM(j, L, Vars), j = F)};
+	if M={0} and N={0} then
+		return(true);
+	else
+		return(false);
+	fi;
+end:
+#<-----------------------------------------------------------------------------
+
